@@ -4,6 +4,7 @@ import {
   ACCOUNT_KINDS,
   ACCOUNT_KIND_LABELS,
   CURRENCIES,
+  convert,
   effectiveRates,
   portfolioTotal,
   type Account,
@@ -27,6 +28,7 @@ export function AccountsPage() {
   const archived = accounts.data?.filter((a) => a.isArchived) ?? [];
   const eff = settings.data && !fx.loading ? effectiveRates(fx.data, settings.data.rates) : null;
   const total = accounts.data && settings.data && eff ? portfolioTotal(accounts.data, settings.data.displayCurrency, eff.rates) : null;
+  const demos = active.filter((a) => a.kind === 'demo');
   const usesManual = !!eff && active.some((a) => eff.origin[a.baseCurrency] === 'manual' || eff.origin[settings.data!.displayCurrency] === 'manual');
 
   return (
@@ -52,6 +54,9 @@ export function AccountsPage() {
               <div className="text-2xl font-bold">
                 <Money value={total.total} currency={settings.data.displayCurrency} />
               </div>
+              {demos.length > 0 && (
+                <div className="mt-1 text-xs text-amber-700 dark:text-amber-400">לא כולל {demos.length === 1 ? 'חשבון דמו' : `{demos.length} חשבונות דמו`} — הם לא כסף אמיתי</div>
+              )}
               {eff && (
                 <div className="mt-2 space-y-0.5 text-xs text-slate-500">
                   {[...new Set([...active.map((a) => a.baseCurrency), settings.data.displayCurrency])]
@@ -81,12 +86,12 @@ export function AccountsPage() {
       {accounts.loading && !accounts.data && <p className="text-sm text-slate-500">טוען…</p>}
       {accounts.data?.length === 0 && <p className="text-sm text-slate-500">עדיין אין חשבונות. צור את הראשון.</p>}
 
-      <AccountGrid list={active} />
+      <AccountGrid list={active} display={settings.data?.displayCurrency} rates={eff?.rates} />
       {archived.length > 0 && (
         <details>
           <summary className="cursor-pointer text-sm text-slate-500">ארכיון ({archived.length})</summary>
           <div className="mt-3 opacity-70">
-            <AccountGrid list={archived} />
+            <AccountGrid list={archived} display={settings.data?.displayCurrency} rates={eff?.rates} />
           </div>
         </details>
       )}
@@ -94,7 +99,7 @@ export function AccountsPage() {
   );
 }
 
-function AccountGrid({ list }: { list: Account[] }) {
+function AccountGrid({ list, display, rates }: { list: Account[]; display?: Currency; rates?: Settings['rates'] }) {
   return (
     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
       {list.map((a) => (
@@ -112,6 +117,19 @@ function AccountGrid({ list }: { list: Account[] }) {
           <div className="mt-3 text-lg font-bold">
             <Money value={a.balance} currency={a.baseCurrency} />
           </div>
+          {(() => {
+            // The same balance in the display currency (₪), so accounts in different currencies compare at a glance.
+            if (!display || !rates || display === a.baseCurrency) return null;
+            const v = convert(a.balance, a.baseCurrency, display, rates);
+            return v === null ? (
+              <div className="text-xs text-amber-600">חסר שער ל-{a.baseCurrency}</div>
+            ) : (
+              <div className="text-sm text-slate-500">
+                ≈ <Money value={v} currency={display} />
+              </div>
+            );
+          })()}
+          {a.kind === 'demo' && !a.isArchived && <div className="mt-1 text-xs text-amber-700 dark:text-amber-400">דמו — לא נספר בסך התיק</div>}
         </Link>
       ))}
     </div>

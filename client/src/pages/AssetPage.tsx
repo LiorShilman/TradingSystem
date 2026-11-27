@@ -35,6 +35,8 @@ function AssetView({ symbol }: { symbol: string }) {
         {quote && (
           <span className="text-sm">
             <span dir="ltr" className="font-semibold tabular-nums">{quote.price}</span> <span className="text-xs text-slate-500">{quote.source === 'tradingview' ? 'TradingView' : 'FXCM'}</span>
+            {quote.delayedMin ? <span className="ms-1 rounded bg-amber-500/15 px-1.5 text-xs text-amber-700 dark:text-amber-300">מאוחר {quote.delayedMin} דק׳</span> : null}
+            {quote.name && <span className="ms-2 text-xs text-slate-500">{quote.name}</span>}
           </span>
         )}
         <div className="ms-auto flex gap-2">

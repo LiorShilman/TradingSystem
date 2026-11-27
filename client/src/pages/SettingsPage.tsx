@@ -174,9 +174,14 @@ export function SettingsPage() {
       <section className="card space-y-3">
         <h2 className="font-semibold">גיבוי</h2>
         <p className="text-xs text-slate-500">קובץ JSON עם כל הנתונים. גיבוי אוטומטי ושחזור יתווספו בהמשך.</p>
-        <button className="btn-ghost" onClick={exportJson}>
-          ⬇ ייצוא JSON
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button className="btn-ghost" onClick={exportJson}>
+            ⬇ ייצוא JSON
+          </button>
+          <button className="btn-ghost" onClick={() => void download('/export/trades.csv', 'trades.csv').catch((e) => setError(e instanceof Error ? e.message : 'שגיאה'))}>
+            ⬇ עסקאות ל-Excel (CSV)
+          </button>
+        </div>
       </section>
 
       <section className="card">

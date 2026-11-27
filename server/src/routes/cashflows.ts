@@ -5,16 +5,19 @@ import {
   cashflowPatchSchema,
   computeBalance,
   nowUtcIso,
+  realizedTotal,
   type Cashflow,
 } from '@trading/shared';
 import { ZodError } from 'zod';
+import { Decimal, dec, decStr } from '@trading/shared';
 import { notFound, parse } from '../http';
 import type { Store } from '../store/types';
 
-/** Recompute the derived balance of an account from all its cashflows. */
+/** Recompute the derived balance of an account: all its cashflows + the realized net P&L of its trades. */
 export async function recomputeBalance(store: Store, accountId: string) {
-  const flows = await store.cashflows.list({ field: 'accountId', value: accountId });
-  await store.accounts.update(accountId, { balance: computeBalance(flows), updatedAt: nowUtcIso() });
+  const [flows, trades] = await Promise.all([store.cashflows.list({ field: 'accountId', value: accountId }), store.trades.list({ field: 'accountId', value: accountId })]);
+  const balance = decStr(dec(computeBalance(flows)).plus(new Decimal(realizedTotal(trades))));
+  await store.accounts.update(accountId, { balance, updatedAt: nowUtcIso() });
 }
 
 export function cashflowsRouter(store: Store) {

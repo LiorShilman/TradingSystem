@@ -8,6 +8,7 @@ import {
   ORDER_TYPES,
   ORDER_TYPE_LABELS,
   PLAN_STATUS_LABELS,
+  TRADE_STATUS_LABELS,
   convert,
   effectiveRates,
   israelLocalToUtcIso,
@@ -25,7 +26,10 @@ import {
   type Plan,
   type PlanStatus,
   type Settings,
+  type Trade,
+  type InstrumentSpec,
 } from '@trading/shared';
+import { NewTradeForm } from '../components/NewTradeForm';
 import { NotesTimeline } from '../components/Notes';
 import { WebhookSetup } from './AlertsPage';
 import { ScreenshotGallery } from '../components/Screenshots';
@@ -129,6 +133,8 @@ function PlanEditor({ initial }: { initial: Plan }) {
   const [plan, setPlan] = useState(initial);
   const [form, setForm] = useState<Form>(() => toForm(initial));
   const [statusError, setStatusError] = useState<string[] | null>(null);
+  const [opening, setOpening] = useState(false);
+  const [suggestedUnits, setSuggestedUnits] = useState<string | null>(null);
   const set = <K extends keyof Form>(k: K, v: Form[K]) => setForm((f) => ({ ...f, [k]: v }));
 
   const { payload, errors } = useMemo(() => toPayload(form), [form]);
@@ -187,7 +193,34 @@ function PlanEditor({ initial }: { initial: Plan }) {
             </span>
           )}
         </div>
-        <StatusActions status={plan.status} onSet={setStatus} />
+        <StatusActions status={plan.status} onSet={setStatus} onOpenTrade={() => setOpening((o) => !o)} />
+        {opening && (
+          <div className="rounded-xl border border-sky-300 bg-sky-50/50 p-4 dark:border-sky-800 dark:bg-sky-950/30">
+            <h3 className="mb-2 font-semibold">פתחתי את העסקה — רישום ביומן</h3>
+            {issues.length > 0 ? (
+              <p className="text-sm text-amber-700 dark:text-amber-400">קודם השלם את התוכנית: {issues.join(' · ')}</p>
+            ) : (
+              <NewTradeForm
+                onCancel={() => setOpening(false)}
+                defaults={{
+                  symbol: plan.symbol,
+                  assetClass: payload.assetClass,
+                  accountId: payload.accountId,
+                  direction: payload.direction,
+                  timeframe: payload.timeframe,
+                  planId: plan.id,
+                  ideaId: plan.ideaId,
+                  initialStop: payload.stopLoss,
+                  entryPrice: metrics?.entry ?? payload.entryLow,
+                  quantity: suggestedUnits,
+                  targets: payload.targets,
+                  tags: payload.tags,
+                }}
+              />
+            )}
+          </div>
+        )}
+        {plan.status === 'opened' && <PlanTrades planId={plan.id} />}
         {statusError && (
           <div role="alert" className="rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300">
             אי אפשר לשנות סטטוס עדיין:
@@ -329,7 +362,7 @@ function PlanEditor({ initial }: { initial: Plan }) {
               </div>
             )}
           </div>
-          <SizingCard form={form} setForm={setForm} entry={metrics?.entry ?? null} stop={payload.stopLoss} riskError={errors.riskPct} />
+          <SizingCard form={form} setForm={setForm} entry={metrics?.entry ?? null} stop={payload.stopLoss} riskError={errors.riskPct} onUnits={setSuggestedUnits} />
         </div>
 
         {/* Media: chart, screenshots, notes */}
@@ -373,7 +406,30 @@ function NumInput({ value, onChange, placeholder }: { value: string; onChange: (
   return <input className="input tabular-nums" dir="ltr" inputMode="decimal" value={value} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} />;
 }
 
-function StatusActions({ status, onSet }: { status: PlanStatus; onSet: (s: PlanStatus) => void }) {
+/** Trades opened from this plan. */
+function PlanTrades({ planId }: { planId: string }) {
+  const trades = useAsync(() => api<Trade[]>(`/trades?planId=${encodeURIComponent(planId)}`), [planId]);
+  if (!trades.data) return null;
+  if (!trades.data.length) return <p className="text-sm text-slate-500">התוכנית מסומנת "נפתחה", אבל אין לה עסקה ביומן.</p>;
+  return (
+    <div className="flex flex-wrap gap-2 text-sm">
+      {trades.data.map((t) => (
+        <Link key={t.id} to={`/trades/${t.id}`} className="rounded-lg bg-sky-500/10 px-3 py-1.5 text-sky-700 hover:bg-sky-500/20 dark:text-sky-300">
+          לעסקה ביומן ({TRADE_STATUS_LABELS[t.status]}
+          {t.netPnl !== null && t.status === 'closed' ? (
+            <>
+              {' · '}
+              <Money value={t.netPnl} currency={t.currency} colored />
+            </>
+          ) : null}
+          ) ←
+        </Link>
+      ))}
+    </div>
+  );
+}
+
+function StatusActions({ status, onSet, onOpenTrade }: { status: PlanStatus; onSet: (s: PlanStatus) => void; onOpenTrade: () => void }) {
   const actions: Array<{ to: PlanStatus; label: string; primary?: boolean; danger?: boolean }> = {
     draft: [
       { to: 'ready' as const, label: 'סמן כמוכנה ✓', primary: true },
@@ -385,7 +441,6 @@ function StatusActions({ status, onSet }: { status: PlanStatus; onSet: (s: PlanS
       { to: 'cancelled' as const, label: 'בטל', danger: true },
     ],
     waiting: [
-      { to: 'opened' as const, label: 'נפתחה ▶', primary: true },
       { to: 'ready' as const, label: 'חזרה למוכנה' },
       { to: 'cancelled' as const, label: 'בטל', danger: true },
     ],
@@ -395,12 +450,16 @@ function StatusActions({ status, onSet }: { status: PlanStatus; onSet: (s: PlanS
   }[status];
   return (
     <div className="flex flex-wrap items-center gap-2">
+      {(status === 'ready' || status === 'waiting') && (
+        <button className="btn-primary" onClick={onOpenTrade}>
+          פתחתי את העסקה ▶
+        </button>
+      )}
       {actions.map((a) => (
-        <button key={a.to} className={a.primary ? 'btn-primary' : a.danger ? 'btn-danger' : 'btn-ghost'} onClick={() => onSet(a.to)}>
+        <button key={a.to} className={a.danger ? 'btn-danger' : a.primary && status === 'draft' ? 'btn-primary' : 'btn-ghost'} onClick={() => onSet(a.to)}>
           {a.label}
         </button>
       ))}
-      {status === 'opened' && <span className="text-sm text-slate-500">העסקה נפתחה. הקישור ליומן העסקאות יגיע בשלב 3.</span>}
     </div>
   );
 }
@@ -411,16 +470,21 @@ function SizingCard({
   entry,
   stop,
   riskError,
+  onUnits,
 }: {
   form: Form;
   setForm: React.Dispatch<React.SetStateAction<Form>>;
   entry: string | null;
   stop: string | null;
   riskError?: string;
+  /** Suggested size (units, rounded to what the broker trades) for opening the trade. */
+  onUnits?: (units: string | null) => void;
 }) {
   const accounts = useAsync(() => api<Account[]>('/accounts'), []);
   const settings = useAsync(() => api<Settings>('/settings'), []);
   const fx = useAsync(() => api<FxSnapshot | null>('/fx'), []);
+  // CFD (gold, oil, indices): the broker's contract spec decides the size.
+  const spec = useAsync(() => (form.symbol ? api<InstrumentSpec | null>(`/instruments/spec?symbol=${encodeURIComponent(form.symbol)}`) : Promise.resolve(null)), [form.symbol]);
   const account = accounts.data?.find((a) => a.id === form.accountId) ?? null;
   const [broker, setBroker] = useState<BrokerSnapshot | null>(null);
 
@@ -438,8 +502,10 @@ function SizingCard({
 
   const result =
     account && equity && entry && stop && riskPct && rates
-      ? positionSize({ assetClass: form.assetClass, symbol: form.symbol, entry, stop, riskPct, equity, accountCurrency: account.baseCurrency, rates })
+      ? positionSize({ assetClass: form.assetClass, symbol: form.symbol, spec: spec.data, entry, stop, riskPct, equity, accountCurrency: account.baseCurrency, rates })
       : null;
+  const units = result?.ok ? (result.value.amountK !== undefined ? String(Number(result.value.amountK) * 1000) : result.value.units) : null;
+  useEffect(() => onUnits?.(units && Number(units) > 0 ? units : null), [units, onUnits]);
   const riskIls = result?.ok && account && rates ? convert(result.value.roundedRisk, account.baseCurrency, 'ILS', rates) : null;
 
   return (
@@ -470,7 +536,17 @@ function SizingCard({
       {result && !result.ok && <p className="text-sm text-amber-600 dark:text-amber-400">{result.error}</p>}
       {result?.ok && account && (
         <dl className="space-y-1.5 text-sm">
-          {result.value.amountK !== undefined ? (
+          {result.value.pointValue !== undefined ? (
+            <>
+              <Row label="גודל (CFD)">
+                <span className="text-lg font-bold">{result.value.units}</span> יחידות
+              </Row>
+              <Row label="שווי תזוזה של 1.0">
+                <Money value={result.value.pointValue} currency={account.baseCurrency} /> ליחידה
+              </Row>
+              <Row label="מקור המפרט">FXCM {spec.data?.offer}</Row>
+            </>
+          ) : result.value.amountK !== undefined ? (
             <>
               <Row label="גודל (FXCM)">
                 <span className="text-lg font-bold">{result.value.amountK}K</span>

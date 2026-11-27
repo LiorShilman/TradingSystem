@@ -99,7 +99,12 @@ export function AccountPage() {
             <Money value={a.balance} currency={a.baseCurrency} />
           </div>
         </div>
-        <div className="text-xs text-slate-500">יתרה = הפקדות + ריבית ± התאמות − משיכות − עמלות</div>
+        <div className="space-y-1 text-end text-xs text-slate-500">
+          <div>יתרה = הפקדות + ריבית ± התאמות − משיכות − עמלות + רווח/הפסד נטו מעסקאות ביומן</div>
+          <Link to={`/trades?account=${a.id}`} className="text-sky-600 hover:underline">
+            העסקאות של החשבון ←
+          </Link>
+        </div>
       </div>
 
       <BrokerSection account={a} onChanged={() => void account.reload()} />

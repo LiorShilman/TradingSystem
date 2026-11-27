@@ -28,9 +28,11 @@ export function Badge({ code, className = '' }: { code: string; className?: stri
 
 /** "1.09830" → big "1.0983" + small "0" (the pipette), like TradingView. */
 function Price({ value }: { value: string }) {
-  const [int, frac = ''] = value.split('.');
+  const [rawInt = '', frac = ''] = value.split('.');
+  // Thousands separators for big prices (BTC 61,749.38; market caps); small prices stay as quoted.
+  const int = rawInt.length > 4 ? Number(rawInt).toLocaleString('en-US') : rawInt;
   const pipette = frac.length >= 3 ? frac.slice(-1) : '';
-  const main = pipette ? `${int}.${frac.slice(0, -1)}` : value;
+  const main = pipette ? `${int}.${frac.slice(0, -1)}` : frac ? `${int}.${frac}` : int;
   return (
     <span dir="ltr" className="tabular-nums">
       <span className="text-2xl font-semibold tracking-tight">{main}</span>
@@ -76,12 +78,25 @@ export interface PairTileProps {
   inZone?: boolean;
   /** Where the price came from: 'fxcmgr' (the broker) or 'tradingview' (fallback). */
   source?: string;
+  /** Minutes the price is behind real time (TradingView without a subscription). */
+  delayedMin?: number;
+  /** Instrument name from TradingView. */
+  name?: string;
+  /** Edit mode: remove from the watchlist. */
+  onRemove?: () => void;
+  /** Prices were loaded and neither FXCM nor TradingView has this symbol. */
+  noSource?: boolean;
 }
 
-export function PairTile({ symbol, price, points, activePlans = 0, ideas = 0, inZone = false, source }: PairTileProps) {
+export function PairTile({ symbol, price, points, activePlans = 0, ideas = 0, inZone = false, source, delayedMin, name, onRemove, noSource = false }: PairTileProps) {
   const t = symbolTicker(symbol);
+  const exchange = symbol.split(':')[0] ?? '';
   const base = t.slice(0, 3);
   const quote = t.slice(3);
+  // Currency badges only for real currency pairs; anything else (gold, crypto, indices, stocks) gets a plain header.
+  const isPair = /^[A-Z]{6}$/.test(t) && !!CCY[base] && !!CCY[quote];
+  // FXCM's own feed on TradingView: a frozen price there means FXCM, not a closed market.
+  const fxcmLike = exchange === 'FX';
 
   // Flash green/red when the price moves.
   const prev = useRef<string | null>(null);
@@ -107,10 +122,10 @@ export function PairTile({ symbol, price, points, activePlans = 0, ideas = 0, in
   const changePct = !stale && first && last && points.length >= 2 ? dec(last).minus(dec(first)).div(dec(first)).times(100) : null;
   const up = changePct ? !changePct.isNegative() : true;
 
-  return (
+  const tile = (
     <Link
       to={`/assets/${encodeURIComponent(symbol)}`}
-      className={`group relative flex flex-col gap-2 overflow-hidden rounded-2xl border bg-gradient-to-br p-4 transition duration-300 hover:-translate-y-0.5 hover:shadow-lg
+      className={`group relative flex h-full flex-col gap-2 overflow-hidden rounded-2xl border bg-gradient-to-br p-4 transition duration-300 hover:-translate-y-0.5 hover:shadow-lg
         ${inZone ? 'border-amber-400 shadow-[0_0_0_1px_rgb(251_191_36),0_0_24px_-4px_rgb(251_191_36/0.6)]' : 'border-slate-200 hover:border-sky-400 dark:border-slate-800 dark:hover:border-sky-500/60'}
         from-white to-slate-50 dark:from-slate-900 dark:to-slate-950
         ${flash === 'up' ? 'bg-emerald-500/10' : flash === 'down' ? 'bg-rose-500/10' : ''}`}
@@ -121,19 +136,30 @@ export function PairTile({ symbol, price, points, activePlans = 0, ideas = 0, in
         className={`pointer-events-none absolute inset-0 transition-opacity duration-700 ${flash ? 'opacity-100' : 'opacity-0'} ${flash === 'up' ? 'bg-emerald-500/10' : 'bg-rose-500/10'}`}
       />
 
-      {/* Row 1: currencies + pair name only */}
+      {/* Row 1: name (currency badges for real pairs) */}
       <div className="relative flex items-center gap-2.5" dir="ltr">
-        <div className="flex shrink-0 items-center gap-1">
-          <Badge code={base} />
-          <Badge code={quote} />
-        </div>
-        <span className="min-w-0 truncate text-[15px] font-semibold tracking-wide">
-          {base}
-          <span className="mx-0.5 font-normal text-slate-400">/</span>
-          {quote}
-        </span>
-        {source === 'tradingview' && (
-          <span className="ms-auto shrink-0 rounded bg-indigo-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-indigo-600 dark:text-indigo-300" title="FXCM לא מעדכן את הצמד הזה — המחיר מ-TradingView">
+        {isPair ? (
+          <>
+            <div className="flex shrink-0 items-center gap-1">
+              <Badge code={base} />
+              <Badge code={quote} />
+            </div>
+            <span className="min-w-0 truncate text-[15px] font-semibold tracking-wide">
+              {base}
+              <span className="mx-0.5 font-normal text-slate-400">/</span>
+              {quote}
+            </span>
+          </>
+        ) : (
+          <div className="min-w-0">
+            <div className="truncate text-[15px] font-semibold tracking-wide">
+              {t} <span className="text-[10px] font-normal text-slate-400">{exchange}</span>
+            </div>
+            {name && <div className="truncate text-[11px] text-slate-500" title={name}>{name}</div>}
+          </div>
+        )}
+        {source === 'tradingview' && fxcmLike && (
+          <span className="ms-auto shrink-0 rounded bg-indigo-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-indigo-600 dark:text-indigo-300" title="FXCM לא מעדכן את הנכס הזה — המחיר מ-TradingView">
             TV
           </span>
         )}
@@ -155,9 +181,16 @@ export function PairTile({ symbol, price, points, activePlans = 0, ideas = 0, in
       </div>
 
       <div className="relative -mx-1">
-        {stale ? (
-          <div className="flex h-10 items-center justify-center rounded-lg bg-amber-500/10 text-[11px] font-medium text-amber-600 dark:text-amber-400" title="המחיר זהה כבר מספר דקות — FXCM לא מעדכן את הצמד, ו-TradingView לא זמין כרגע">
-            ⚠ המחיר לא מתעדכן
+        {noSource && !price ? (
+          <div className="flex h-10 items-center justify-center rounded-lg bg-slate-500/10 text-[11px] text-slate-500" title="FXCM לא מכיר את הסימול (או שאינו ברשימת המינוי), ו-TradingView לא מחזיר לו מחיר">
+            אין מקור מחיר לסימול הזה
+          </div>
+        ) : stale ? (
+          <div
+            className="flex h-10 items-center justify-center rounded-lg bg-amber-500/10 text-[11px] font-medium text-amber-600 dark:text-amber-400"
+            title={fxcmLike ? 'המחיר זהה כבר מספר דקות — FXCM לא מעדכן, ו-TradingView לא זמין כרגע' : 'המחיר לא זז כבר מספר דקות — ייתכן שהמסחר סגור עכשיו'}
+          >
+            {fxcmLike ? '⚠ המחיר לא מתעדכן' : 'אין תנועה — מסחר סגור?'}
           </div>
         ) : (
           <Sparkline points={price && points.length ? [...points.slice(0, -1), [Date.now(), price]] : points} up={up} />
@@ -168,7 +201,12 @@ export function PairTile({ symbol, price, points, activePlans = 0, ideas = 0, in
         {inZone && <span className="rounded-full bg-amber-400/20 px-2 py-0.5 font-semibold text-amber-600 dark:text-amber-300">🎯 באזור כניסה</span>}
         {activePlans > 0 && <span className="rounded-full bg-sky-500/15 px-2 py-0.5 text-sky-600 dark:text-sky-300">{activePlans} תוכניות</span>}
         {ideas > 0 && <span className="rounded-full bg-slate-500/15 px-2 py-0.5 text-slate-600 dark:text-slate-300">{ideas} רעיונות</span>}
-        {fresh && (
+        {delayedMin ? (
+          <span className="ms-auto rounded bg-amber-500/15 px-1.5 py-0.5 font-medium text-amber-700 dark:text-amber-300" title="מחיר מ-TradingView בלי מינוי לנתונים בזמן אמת — לא נשלחות עליו התראות">
+            מאוחר {delayedMin} דק׳
+          </span>
+        ) : null}
+        {fresh && !delayedMin && (
           <span className="ms-auto inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400" title={minutes > 0 ? `הגרף והשינוי באחוזים: ${minutes} הדקות האחרונות` : undefined}>
             <span className="size-1.5 animate-pulse rounded-full bg-emerald-500" />
             חי
@@ -176,5 +214,20 @@ export function PairTile({ symbol, price, points, activePlans = 0, ideas = 0, in
         )}
       </div>
     </Link>
+  );
+  if (!onRemove) return tile;
+  return (
+    <div className="relative h-full">
+      {tile}
+      <button
+        type="button"
+        onClick={onRemove}
+        aria-label={`הסר את ${symbol} מהרשימה`}
+        title="הסר מהרשימה"
+        className="absolute -top-2 -left-2 z-[1] flex size-7 items-center justify-center rounded-full bg-rose-600 text-sm font-bold text-white shadow-lg hover:bg-rose-500"
+      >
+        ✕
+      </button>
+    </div>
   );
 }

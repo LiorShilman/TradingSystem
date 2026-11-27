@@ -71,6 +71,8 @@ export function createFirestoreStore(db: Firestore): Store {
     cashflows: new FirestoreCollection(db, 'cashflows'),
     ideas: new FirestoreCollection(db, 'ideas'),
     plans: new FirestoreCollection(db, 'plans'),
+    trades: new FirestoreCollection(db, 'trades'),
+    watchlists: new FirestoreCollection(db, 'watchlists'),
     notes: new FirestoreCollection(db, 'notes'),
     screenshots: new FirestoreCollection(db, 'screenshots'),
     assets: new FirestoreCollection(db, 'assets'),

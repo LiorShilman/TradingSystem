@@ -6,6 +6,9 @@ export interface Quote {
   price: string;
   at: string;
   source: string;
+  /** Minutes behind real time; absent = real time. */
+  delayedMin?: number;
+  name?: string;
 }
 
 /** Live quotes for symbols (refreshed every 30s). Missing symbols simply have no quote. */

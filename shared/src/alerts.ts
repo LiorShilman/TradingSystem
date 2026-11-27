@@ -9,12 +9,14 @@ export const alertConfigSchema = z.object({
   plans: z.boolean(),
   levels: z.boolean(),
   reminders: z.boolean(),
+  /** Open trades: target reached, approaching / hitting the stop. */
+  trades: z.boolean().default(true),
 });
-export type AlertConfig = z.infer<typeof alertConfigSchema>;
-export const DEFAULT_ALERT_CONFIG: AlertConfig = { approachPips: 10, plans: true, levels: true, reminders: true };
+export type AlertConfig = z.output<typeof alertConfigSchema>;
+export const DEFAULT_ALERT_CONFIG: AlertConfig = { approachPips: 10, plans: true, levels: true, reminders: true, trades: true };
 
 // ---------- log ----------
-export const ALERT_KINDS = ['plan_approach', 'plan_zone', 'plan_stop', 'level_cross', 'idea_reminder', 'plan_expiring', 'plan_expired', 'tv_webhook'] as const;
+export const ALERT_KINDS = ['plan_approach', 'plan_zone', 'plan_stop', 'level_cross', 'idea_reminder', 'plan_expiring', 'plan_expired', 'tv_webhook', 'trade_target', 'trade_stop_near', 'trade_stop'] as const;
 export type AlertKind = (typeof ALERT_KINDS)[number];
 export const ALERT_KIND_LABELS: Record<AlertKind, string> = {
   plan_approach: 'מתקרב לאזור',
@@ -25,6 +27,9 @@ export const ALERT_KIND_LABELS: Record<AlertKind, string> = {
   plan_expiring: 'תוכנית עומדת לפוג',
   plan_expired: 'תוכנית פגה',
   tv_webhook: 'TradingView',
+  trade_target: 'עסקה: הגיע ליעד',
+  trade_stop_near: 'עסקה: מתקרב לסטופ',
+  trade_stop: 'עסקה: הגיע לסטופ',
 };
 
 export interface AlertEvent {
@@ -34,6 +39,8 @@ export interface AlertEvent {
   symbol: string | null;
   planId: string | null;
   ideaId: string | null;
+  /** Open-trade alerts (absent in older log entries). */
+  tradeId?: string | null;
   price: string | null;
   /** Plain text, Hebrew. */
   title: string;
@@ -44,7 +51,11 @@ export interface AlertEvent {
 }
 
 // ---------- price helpers ----------
-export const pipSize = (symbol: string) => (symbolTicker(symbol).endsWith('JPY') ? new Decimal('0.01') : new Decimal('0.0001'));
+/** Pip size: 0.01 for JPY pairs and for gold/silver (as at FXCM), 0.0001 for other currency pairs. */
+export const pipSize = (symbol: string) => {
+  const t = symbolTicker(symbol);
+  return t.endsWith('JPY') || /^X(AU|AG)/.test(t) ? new Decimal('0.01') : new Decimal('0.0001');
+};
 
 /** Distance from the entry zone in price units (0 inside). */
 export function distanceToZone(lo: Decimal, hi: Decimal, px: Decimal): Decimal {
@@ -108,6 +119,63 @@ export function evaluatePlanPrice(p: PlanPriceInput, price: string, prev: PlanAl
     s.approach = true;
   }
   return { state: s, fire };
+}
+
+// ---------- open-trade alerts ----------
+export type TradeFire = { kind: 'trade_stop' } | { kind: 'trade_stop_near' } | { kind: 'trade_target'; index: number };
+
+export interface TradeAlertState {
+  sig: string;
+  stopNear: boolean;
+  stop: boolean;
+  targets: boolean[];
+}
+
+export interface TradePriceInput {
+  symbol: string;
+  assetClass: Plan['assetClass'];
+  direction: Plan['direction'];
+  /** Current stop (or the initial one). */
+  stop: string;
+  targets: Array<{ price: string }>;
+}
+
+/**
+ * One observed price against an open trade. Same rules as plans: each alert once, re-armed only after
+ * the price moved clearly away. Stop hit silences "approaching". "Approaching the stop" is forex only.
+ */
+export function evaluateTradePrice(t: TradePriceInput, price: string, prev: TradeAlertState | null, approachPips: number): { state: TradeAlertState; fires: TradeFire[] } {
+  const sig = [t.direction, t.stop, ...t.targets.map((x) => x.price)].join('|');
+  const s: TradeAlertState = prev && prev.sig === sig ? { ...prev, targets: [...prev.targets] } : { sig, stopNear: false, stop: false, targets: t.targets.map(() => false) };
+  const px = dec(price);
+  const sl = dec(t.stop);
+  const long = t.direction === 'long';
+  const forex = t.assetClass === 'forex';
+  const approach = forex ? pipSize(t.symbol).times(approachPips) : new Decimal(0);
+  const rearm = (level: Decimal) => (forex ? approach.times(1.5) : level.times('0.002'));
+  const fires: TradeFire[] = [];
+
+  // Distance from the stop on the safe side (negative = beyond the stop).
+  const room = long ? px.minus(sl) : sl.minus(px);
+  if (room.gt(rearm(sl))) s.stop = false;
+  if (forex && room.gt(approach.times(1.5))) s.stopNear = false;
+  if (room.lte(0)) {
+    if (!s.stop) fires.push({ kind: 'trade_stop' });
+    s.stop = s.stopNear = true;
+  } else if (forex && room.lte(approach)) {
+    if (!s.stopNear) fires.push({ kind: 'trade_stop_near' });
+    s.stopNear = true;
+  }
+
+  t.targets.forEach((tg, i) => {
+    const tp = dec(tg.price);
+    const beyond = long ? px.minus(tp) : tp.minus(px); // ≥ 0 = reached
+    if (beyond.gte(0)) {
+      if (!s.targets[i]) fires.push({ kind: 'trade_target', index: i });
+      s.targets[i] = true;
+    } else if (beyond.abs().gt(rearm(tp))) s.targets[i] = false;
+  });
+  return { state: s, fires };
 }
 
 // ---------- key-level crossings ----------

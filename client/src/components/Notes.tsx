@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { formatIsrael, type Note } from '@trading/shared';
+import { formatIsrael, type Note, type NoteParentKind } from '@trading/shared';
 import { api } from '../lib/api';
 import { ErrorBox } from './ui';
 
@@ -10,7 +10,7 @@ export function NotesTimeline({
   symbol = null,
   title = 'ניתוחים והערות',
 }: {
-  parentKind: 'idea' | 'plan' | 'asset';
+  parentKind: NoteParentKind;
   parentId: string;
   symbol?: string | null;
   title?: string;

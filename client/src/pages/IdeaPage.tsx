@@ -15,6 +15,7 @@ import { SymbolInput, TagsInput } from '../components/SymbolInput';
 import { ErrorBox, Field } from '../components/ui';
 import { api, ApiError } from '../lib/api';
 import { SaveIndicatorText, useAutosave } from '../lib/useAutosave';
+import { useActiveAccount } from '../lib/activeAccount';
 import { useAsync } from '../lib/useAsync';
 
 export function IdeaPage() {
@@ -27,6 +28,7 @@ export function IdeaPage() {
 
 function IdeaEditor({ idea }: { idea: Idea }) {
   const navigate = useNavigate();
+  const { active: activeAccount } = useActiveAccount();
   const [form, setForm] = useState({
     symbol: idea.symbol,
     title: idea.title,
@@ -56,7 +58,7 @@ function IdeaEditor({ idea }: { idea: Idea }) {
 
   async function toPlan() {
     try {
-      const plan = await api<Plan>(`/ideas/${idea.id}/to-plan`, { method: 'POST' });
+      const plan = await api<Plan>(`/ideas/${idea.id}/to-plan`, { method: 'POST', body: { accountId: activeAccount?.id ?? null } });
       navigate(`/plans/${plan.id}`);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'שגיאה');

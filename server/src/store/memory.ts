@@ -46,6 +46,8 @@ export function createMemoryStore(): Store {
     cashflows: new MemoryCollection(),
     ideas: new MemoryCollection(),
     plans: new MemoryCollection(),
+    trades: new MemoryCollection(),
+    watchlists: new MemoryCollection(),
     notes: new MemoryCollection(),
     screenshots: new MemoryCollection(),
     assets: new MemoryCollection(),

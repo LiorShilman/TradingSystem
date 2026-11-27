@@ -15,19 +15,22 @@ const TMP = path.join(os.tmpdir(), `trading-quotes-${process.pid}`);
 let store: Store;
 let fxcm: Record<string, number>; // FXCM pair → rate; missing pair = bridge error
 let tv: Record<string, string>;
+let tvDelayed: Record<string, number>;
+let fxcmAsked: string[];
 let tvAsked: string[][];
 let tvDown: boolean;
 let now: number;
 
 const fxcmgr: FxcmgrClient = async (_cfg, _path, body) => {
   const pair = body.replace('pairs=', '');
+  fxcmAsked.push(pair);
   if (!(pair in fxcm)) throw new Error('unknown pair');
   return { pairs: [{ Updated: 0, Rates: [fxcm[pair]] }] };
 };
 const tvClient: TvQuoteClient = async (symbols) => {
   tvAsked.push(symbols);
   if (tvDown) throw new Error('HTTP 403');
-  return Object.fromEntries(symbols.filter((s) => s in tv).map((s) => [s, tv[s]!]));
+  return Object.fromEntries(symbols.filter((s) => s in tv).map((s) => [s, { price: tv[s]!, delayedMin: tvDelayed[s] ?? 0, name: `name of ${s}` }]));
 };
 
 beforeEach(async () => {
@@ -36,6 +39,8 @@ beforeEach(async () => {
   tv = {};
   tvAsked = [];
   tvDown = false;
+  tvDelayed = {};
+  fxcmAsked = [];
   now = Date.parse('2026-11-27T10:00:00Z');
   const app = createApp(store, { adminKey: KEY, filesDir: TMP });
   await request(app)
@@ -95,5 +100,35 @@ describe('QuoteHub sources', () => {
     const q = await hub().get(['FX:EURUSD', 'FX:GBPJPY', 'FX:AUDNZD']);
     expect(Object.keys(q).sort()).toEqual(['FX:AUDNZD', 'FX:EURUSD', 'FX:GBPJPY']);
     expect(tvAsked).toEqual([['FX:GBPJPY', 'FX:AUDNZD']]);
+  });
+
+  it('other exchanges never go to FXCM; FX: gold/oil do (XAU/USD, USOil); an unknown offer is not retried every tick', async () => {
+    const h = hub();
+    fxcm['XAU/USD'] = 3674.56;
+    tv['BITSTAMP:BTCUSD'] = '61749.38';
+    tv['FX:US2000'] = '2400';
+    const q = await h.get(['BITSTAMP:BTCUSD', 'FX:XAUUSD', 'FX:US2000']);
+    expect(q).toMatchObject({ 'BITSTAMP:BTCUSD': { source: 'tradingview', name: 'name of BITSTAMP:BTCUSD' }, 'FX:XAUUSD': { price: '3674.56', source: 'fxcmgr' }, 'FX:US2000': { source: 'tradingview' } });
+    expect(fxcmAsked).toEqual(['XAU/USD', 'US2000F', 'US2000']);
+    step();
+    await h.get(['FX:US2000']);
+    expect(fxcmAsked).toEqual(['XAU/USD', 'US2000F', 'US2000']); // not asked again for 10 minutes
+  });
+
+  it('index CFDs: FX:SPX500 is FXCM "SPX500F"', async () => {
+    fxcm['SPX500F'] = 7300.94;
+    expect(await hub().get(['FX:SPX500'])).toMatchObject({ 'FX:SPX500': { price: '7300.94', source: 'fxcmgr' } });
+    expect(fxcmAsked).toEqual(['SPX500F']);
+  });
+
+  it('delayed TradingView data is flagged and never counts as live', async () => {
+    const h = hub();
+    tv['NASDAQ:MSTR'] = '79.96';
+    tvDelayed['NASDAQ:MSTR'] = 15;
+    expect(await h.get(['NASDAQ:MSTR'])).toMatchObject({ 'NASDAQ:MSTR': { price: '79.96', delayedMin: 15 } });
+    step();
+    tv['NASDAQ:MSTR'] = '80.10';
+    await h.get(['NASDAQ:MSTR']);
+    expect(h.isLive('NASDAQ:MSTR')).toBe(false);
   });
 });

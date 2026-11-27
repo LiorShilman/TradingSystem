@@ -80,16 +80,21 @@ describe('effectiveRates', () => {
 });
 
 describe('TradingView scanner quotes', () => {
-  it('rounds to the symbol price scale and keeps only real-time rows', () => {
+  it('rounds to the symbol price scale, records the delay, drops other modes', () => {
     const json = {
       data: [
-        { s: 'FX:GBPJPY', d: [209.25700000000001, 1000, 'streaming'] },
+        { s: 'FX:GBPJPY', d: [209.25700000000001, 1000, 'streaming', 'British Pound / Japanese Yen'] },
         { s: 'FX:AUDNZD', d: [1.2169800000000001, 100000, 'streaming'] },
-        { s: 'NASDAQ:AAPL', d: [355.58, 100, 'delayed_streaming_900'] },
+        { s: 'NASDAQ:AAPL', d: [355.58, 100, 'delayed_streaming_900', 'Apple Inc.'] },
+        { s: 'TASE:X', d: [10, 100, 'endofday'] },
         { s: 'FX:BAD', d: [null, 100000, 'streaming'] },
       ],
     };
-    expect(parseTvScan(json)).toEqual({ 'FX:GBPJPY': '209.257', 'FX:AUDNZD': '1.21698' });
+    expect(parseTvScan(json)).toEqual({
+      'FX:GBPJPY': { price: '209.257', delayedMin: 0, name: 'British Pound / Japanese Yen' },
+      'FX:AUDNZD': { price: '1.21698', delayedMin: 0, name: '' },
+      'NASDAQ:AAPL': { price: '355.58', delayedMin: 15, name: 'Apple Inc.' },
+    });
     expect(parseTvScan({})).toEqual({});
   });
 });

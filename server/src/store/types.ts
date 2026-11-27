@@ -1,4 +1,4 @@
-import type { Account, AlertConfig, AlertEvent, AssetDoc, Cashflow, FxSnapshot, Idea, Note, Plan, Screenshot, Settings } from '@trading/shared';
+import type { Account, AlertConfig, AlertEvent, AssetDoc, Cashflow, FxSnapshot, Idea, Note, Plan, Screenshot, Settings, Trade, Watchlist } from '@trading/shared';
 import type { TelegramLink } from '../telegram';
 
 export interface Doc {
@@ -31,6 +31,8 @@ export interface Store {
   cashflows: Collection<Cashflow>;
   ideas: Collection<Idea>;
   plans: Collection<Plan>;
+  trades: Collection<Trade>;
+  watchlists: Collection<Watchlist>;
   notes: Collection<Note>;
   screenshots: Collection<StoredScreenshot>;
   assets: Collection<AssetDoc>;

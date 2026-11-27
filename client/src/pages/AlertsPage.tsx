@@ -14,6 +14,9 @@ const KIND_STYLE: Record<AlertKind, string> = {
   plan_expiring: 'bg-orange-500/15 text-orange-700 dark:text-orange-300',
   plan_expired: 'bg-slate-500/15 text-slate-600 dark:text-slate-300',
   tv_webhook: 'bg-indigo-500/15 text-indigo-700 dark:text-indigo-300',
+  trade_target: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300',
+  trade_stop_near: 'bg-amber-400/15 text-amber-700 dark:text-amber-300',
+  trade_stop: 'bg-rose-500/15 text-rose-700 dark:text-rose-300',
 };
 
 export function AlertsPage() {
@@ -61,6 +64,11 @@ export function AlertsPage() {
                   <div className="text-sm font-medium">{a.title}</div>
                   {a.body && <div className="text-xs text-slate-500">{a.body}</div>}
                   <div className="mt-0.5 flex flex-wrap gap-3 text-xs">
+                    {a.tradeId && (
+                      <Link className="text-sky-600 hover:underline" to={`/trades/${a.tradeId}`}>
+                        לעסקה
+                      </Link>
+                    )}
                     {a.planId && (
                       <Link className="text-sky-600 hover:underline" to={`/plans/${a.planId}`}>
                         לתוכנית
@@ -115,7 +123,7 @@ function AlertSettings() {
     }
   }
 
-  const toggle = (key: 'plans' | 'levels' | 'reminders', label: string, hint: string) => (
+  const toggle = (key: 'plans' | 'levels' | 'reminders' | 'trades', label: string, hint: string) => (
     <label className="flex items-start gap-2 text-sm">
       <input type="checkbox" className="mt-1" checked={c[key]} onChange={(e) => void save({ ...c, [key]: e.target.checked })} />
       <span>
@@ -130,6 +138,7 @@ function AlertSettings() {
       <h2 className="font-semibold">הגדרות התראות</h2>
       <ErrorBox message={error} />
       {toggle('plans', 'מחיר מול תוכניות', 'תוכניות "מוכנה" ו"ממתינה לטריגר": מתקרב לאזור, נכנס לאזור, סטופ לפני כניסה')}
+      {toggle('trades', 'עסקאות פתוחות', 'מחיר הגיע ליעד, מתקרב לסטופ (הנוכחי), הגיע לסטופ')}
       {toggle('levels', 'חציית רמות מפתח 🔔', 'רמות שסימנת בפעמון בדף הנכס')}
       {toggle('reminders', 'תזכורות ותוקף', 'תזכורות לרעיונות, ותוכנית שעומדת לפוג (שעתיים לפני) או שפגה')}
       <Field label="מרחק 'מתקרב לאזור' (פיפס)" hint="ההתראה חוזרת רק אחרי שהמחיר התרחק פי 1.5 מהמרחק הזה">

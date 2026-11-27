@@ -4,6 +4,7 @@ import { ASSET_CLASSES, ASSET_CLASS_LABELS, DIRECTIONS, DIRECTION_LABELS, type A
 import { SymbolInput } from '../components/SymbolInput';
 import { ErrorBox, Field, PageTitle } from '../components/ui';
 import { api, ApiError } from '../lib/api';
+import { useActiveAccount } from '../lib/activeAccount';
 import { useAsync } from '../lib/useAsync';
 
 export function NewPlanPage() {
@@ -16,8 +17,9 @@ export function NewPlanPage() {
   const [accountId, setAccountId] = useState('');
   const [error, setError] = useState<string | null>(null);
 
+  const { active: current } = useActiveAccount();
   const active = accounts.data?.filter((a) => !a.isArchived) ?? [];
-  const chosen = accountId || (active.length === 1 ? active[0]!.id : '');
+  const chosen = accountId || current?.id || (active.length === 1 ? active[0]!.id : '');
 
   async function submit(e: FormEvent) {
     e.preventDefault();

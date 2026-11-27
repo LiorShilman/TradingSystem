@@ -84,7 +84,7 @@ describe('AlertEngine — prices', () => {
 
     await readyPlan();
     engine.invalidate();
-    await store.alertConfig.set({ approachPips: 10, plans: false, levels: true, reminders: true });
+    await store.alertConfig.set({ approachPips: 10, plans: false, levels: true, reminders: true, trades: true });
     await engine.onQuotes({ 'FX:EURUSD': q('1.0805') });
     expect(sent).toHaveLength(0);
   });
@@ -187,7 +187,7 @@ describe('TradingView webhook', () => {
   it('admin: log, config round-trip, webhook template', async () => {
     const a = app();
     expect((await request(a).get('/api/alerts')).status).toBe(401);
-    expect((await request(a).get('/api/alerts/config').set(auth)).body).toEqual({ approachPips: 10, plans: true, levels: true, reminders: true });
+    expect((await request(a).get('/api/alerts/config').set(auth)).body).toEqual({ approachPips: 10, plans: true, levels: true, reminders: true, trades: true });
     const put = await request(a).put('/api/alerts/config').set(auth).send({ approachPips: 15, plans: true, levels: false, reminders: true });
     expect(put.status).toBe(200);
     expect((await request(a).get('/api/alerts/config').set(auth)).body.approachPips).toBe(15);

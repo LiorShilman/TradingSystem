@@ -28,16 +28,19 @@ export function convert(amount: string, from: Currency, to: Currency, rates: Set
   return decStr(dec(amount).div(dec(rFrom)).times(dec(rTo)));
 }
 
-/** Sum of non-archived account balances in `to`. Null total (and the missing currencies) when a rate is missing. */
+/**
+ * Sum of real account balances in `to` — archived and demo accounts are not money you own, so they're excluded.
+ * Null total (and the missing currencies) when a rate is missing.
+ */
 export function portfolioTotal(
-  accounts: Iterable<{ balance: string; baseCurrency: Currency; isArchived?: boolean }>,
+  accounts: Iterable<{ balance: string; baseCurrency: Currency; isArchived?: boolean; kind?: string }>,
   to: Currency,
   rates: Settings['rates'],
 ): { total: string | null; missing: Currency[] } {
   let total = new Decimal(0);
   const missing = new Set<Currency>();
   for (const a of accounts) {
-    if (a.isArchived) continue;
+    if (a.isArchived || a.kind === 'demo') continue;
     const v = convert(a.balance, a.baseCurrency, to, rates);
     if (v === null) {
       if (a.baseCurrency !== 'USD' && !rates[a.baseCurrency]) missing.add(a.baseCurrency);

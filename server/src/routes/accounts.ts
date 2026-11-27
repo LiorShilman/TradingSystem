@@ -35,8 +35,8 @@ export function accountsRouter(store: Store) {
   r.delete('/:id', async (req, res) => {
     const id = req.params.id;
     if (!(await store.accounts.get(id))) throw notFound('החשבון');
-    const flows = await store.cashflows.list({ field: 'accountId', value: id });
-    if (flows.length) throw new HttpError(409, 'לחשבון יש תנועות. אפשר להעביר אותו לארכיון במקום למחוק.');
+    const [flows, trades] = await Promise.all([store.cashflows.list({ field: 'accountId', value: id }), store.trades.list({ field: 'accountId', value: id })]);
+    if (flows.length || trades.length) throw new HttpError(409, 'לחשבון יש תנועות או עסקאות. אפשר להעביר אותו לארכיון במקום למחוק.');
     await store.accounts.delete(id);
     res.status(204).end();
   });

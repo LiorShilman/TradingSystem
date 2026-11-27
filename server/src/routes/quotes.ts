@@ -3,7 +3,7 @@ import { normalizeSymbol } from '@trading/shared';
 import type { QuoteHub } from '../quotes';
 
 const parseSymbols = (q: unknown) =>
-  [...new Set((typeof q === 'string' ? q.split(',') : []).map((s) => normalizeSymbol(s)).filter((s): s is string => !!s))].slice(0, 60);
+  [...new Set((typeof q === 'string' ? q.split(',') : []).map((s) => normalizeSymbol(s)).filter((s): s is string => !!s))].slice(0, 200);
 
 export function quotesRouter(hub: QuoteHub) {
   const r = Router();

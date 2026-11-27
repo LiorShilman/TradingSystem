@@ -1,3 +1,4 @@
+import { normalizeSymbol } from '@trading/shared';
 import express from 'express';
 import { AlertEngine } from './alerts';
 import type { FxcmgrClient } from './broker';
@@ -12,10 +13,13 @@ import { exportRouter } from './routes/export';
 import { fxRouter } from './routes/fx';
 import { filesRouter, planningRouter } from './routes/planning';
 import { QuoteHub } from './quotes';
+import { SpecHub } from './specs';
 import type { TvQuoteClient } from './tradingview';
 import { quotesRouter } from './routes/quotes';
 import { settingsRouter } from './routes/settings';
 import { telegramRouter } from './routes/telegram';
+import { tradesRouter } from './routes/trades';
+import { watchlistsRouter } from './routes/watchlists';
 import { Telegram } from './telegram';
 import type { Store } from './store/types';
 
@@ -44,6 +48,7 @@ export function createApp(store: Store, opts: AppOptions) {
   const files = new FileStore(opts.filesDir, opts.adminKey);
   const quoteHub = new QuoteHub(store, { fxcmgr: opts.fxcmgrClient, tv: opts.tvQuoteClient });
   app.locals.quoteHub = quoteHub;
+  const specHub = new SpecHub(store, opts.fxcmgrClient);
   const telegram = opts.telegram ?? new Telegram(null, store);
   const alertEngine = new AlertEngine(store, telegram, { publicUrl: opts.publicUrl, isLive: (s) => quoteHub.isLive(s) });
   app.locals.alertEngine = alertEngine;
@@ -79,6 +84,13 @@ export function createApp(store: Store, opts: AppOptions) {
     next();
   });
   api.use(planningRouter(store, files, opts.binaryFetcher));
+  api.use('/trades', tradesRouter(store, files, specHub));
+  // CFD spec from the broker (null for currency pairs and non-FXCM symbols).
+  api.get('/instruments/spec', async (req, res) => {
+    const s = typeof req.query.symbol === 'string' ? normalizeSymbol(req.query.symbol) : null;
+    res.json(s ? await specHub.get(s) : null);
+  });
+  api.use('/watchlists', watchlistsRouter(store));
   api.use('/alerts', alertsRouter(store, alertEngine, { secret: opts.webhookSecret ?? null, publicUrl: opts.publicUrl ?? null, webhookUrl: opts.webhookUrl ?? null }));
   api.use('/telegram', telegramRouter(store, telegram));
   api.use('/export', exportRouter(store));

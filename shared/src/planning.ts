@@ -226,19 +226,23 @@ export function planMetrics(p: PlanLevels): PlanMetrics | null {
 }
 
 // ---------- notes (analysis timeline) ----------
-export const PARENT_KINDS = ['idea', 'plan', 'asset', 'note'] as const;
+export const PARENT_KINDS = ['idea', 'plan', 'asset', 'note', 'trade'] as const;
 export type ParentKind = (typeof PARENT_KINDS)[number];
 export const parentKey = (kind: ParentKind, id: string) => `${kind}:${id}`;
 
+/** What a note can be attached to (a note's own replies use 'note' internally). */
+export const NOTE_PARENT_KINDS = ['idea', 'plan', 'asset', 'trade'] as const;
+export type NoteParentKind = (typeof NOTE_PARENT_KINDS)[number];
+
 export const noteCreateSchema = z.object({
-  parentKind: z.enum(['idea', 'plan', 'asset']),
+  parentKind: z.enum(NOTE_PARENT_KINDS),
   parentId: z.string().min(1),
   symbol: symbolString.nullable().default(null),
   body: z.string().trim().min(1, 'ההערה ריקה').max(20000),
 });
 export const notePatchSchema = z.object({ body: noteCreateSchema.shape.body });
 export interface Note extends Stamped {
-  parentKind: 'idea' | 'plan' | 'asset';
+  parentKind: NoteParentKind;
   parentId: string;
   parentKey: string;
   symbol: string | null;

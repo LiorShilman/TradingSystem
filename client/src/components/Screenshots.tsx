@@ -13,15 +13,17 @@ interface Props {
   /** Listen to Ctrl+V anywhere on the page (only one gallery per page should). */
   pasteTarget?: boolean;
   title?: string;
+  /** Phase preselected for new shots. */
+  defaultPhase?: ShotPhase;
 }
 
 const isTvLink = (s: string) => /tradingview\.com\/x\/[A-Za-z0-9]+/i.test(s);
 
-export function ScreenshotGallery({ parentKind, parentId, symbol = null, readOnly = false, pasteTarget = false, title = 'צילומי גרף' }: Props) {
+export function ScreenshotGallery({ parentKind, parentId, symbol = null, readOnly = false, pasteTarget = false, title = 'צילומי גרף', defaultPhase = 'before' }: Props) {
   const [shots, setShots] = useState<Screenshot[]>([]);
   const [busy, setBusy] = useState(0);
   const [error, setError] = useState<string | null>(null);
-  const [phase, setPhase] = useState<ShotPhase>('before');
+  const [phase, setPhase] = useState<ShotPhase>(defaultPhase);
   const [tvUrl, setTvUrl] = useState('');
   const [open, setOpen] = useState<Screenshot | null>(null);
   const [drag, setDrag] = useState(false);

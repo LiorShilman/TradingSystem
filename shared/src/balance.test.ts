@@ -29,11 +29,12 @@ describe('balance', () => {
     expect(convert('100', 'EUR', 'ILS', { ILS: '3.65' })).toBeNull();
   });
 
-  it('portfolio total reports missing rates and skips archived accounts', () => {
+  it('portfolio total reports missing rates and skips archived and demo accounts', () => {
     const accounts = [
       { balance: '1000', baseCurrency: 'USD' as const },
       { balance: '500', baseCurrency: 'EUR' as const },
       { balance: '99999', baseCurrency: 'GBP' as const, isArchived: true },
+      { balance: '10000', baseCurrency: 'USD' as const, kind: 'demo' },
     ];
     expect(portfolioTotal(accounts, 'ILS', { ILS: '3.65' })).toEqual({ total: null, missing: ['EUR'] });
     expect(portfolioTotal(accounts, 'USD', { EUR: '0.5' })).toEqual({ total: '2000', missing: [] });

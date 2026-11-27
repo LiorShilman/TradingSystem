@@ -7,6 +7,7 @@ import {
   decStr,
   evaluateLevel,
   evaluatePlanPrice,
+  evaluateTradePrice,
   levelBuffer,
   nowUtcIso,
   parentKey,
@@ -22,6 +23,12 @@ import {
   type PlanAlertState,
   type PlanFire,
   type TvWebhook,
+  type Trade,
+  type TradeAlertState,
+  type TradeFire,
+  type Watchlist,
+  watchlistSymbols,
+  tradeStats,
   normalizeSymbol,
 } from '@trading/shared';
 import type { Quote } from './quotes';
@@ -39,6 +46,8 @@ const PRICE_ALERT_STATUSES: readonly Plan['status'][] = ['ready', 'waiting'];
 
 interface Snapshot {
   plans: Plan[];
+  trades: Trade[];
+  watchlists: Watchlist[];
   ideas: Idea[];
   assets: AssetDoc[];
   at: number;
@@ -53,6 +62,7 @@ export interface AlertEngineOptions {
 }
 
 type Draft = Omit<AlertEvent, 'id' | 'createdAt' | 'delivered' | 'deliveryError'> & { html: string; note?: string };
+
 
 /**
  * Price alerts on plans and key levels, idea reminders and plan expiry → Telegram + alert log
@@ -89,8 +99,14 @@ export class AlertEngine {
 
   private async data(): Promise<Snapshot> {
     if (!this.snap || Date.now() - this.snap.at > CACHE_SAFETY_MS) {
-      const [plans, ideas, assets] = await Promise.all([this.store.plans.list(), this.store.ideas.list(), this.store.assets.list()]);
-      this.snap = { plans, ideas, assets, at: Date.now() };
+      const [plans, trades, watchlists, ideas, assets] = await Promise.all([
+        this.store.plans.list(),
+        this.store.trades.list({ field: 'status', value: 'open' }),
+        this.store.watchlists.list(),
+        this.store.ideas.list(),
+        this.store.assets.list(),
+      ]);
+      this.snap = { plans, trades, watchlists, ideas, assets, at: Date.now() };
     }
     return this.snap;
   }
@@ -109,11 +125,16 @@ export class AlertEngine {
     await this.store.alertStates.upsert(id, { data, updatedAt: nowUtcIso() });
   }
 
-  /** Symbols the sampler should price: active plans + assets with 🔔 levels. */
+  /** Symbols the sampler should price: watchlists, active plans, open trades and assets with 🔔 levels. */
   async watchedSymbols(): Promise<string[]> {
-    const { plans, assets } = await this.data();
+    const { plans, trades, watchlists, assets } = await this.data();
     return [
-      ...new Set([...plans.filter((p) => ACTIVE_PLAN_STATUSES.includes(p.status)).map((p) => p.symbol), ...assets.filter((a) => a.levels.some((l) => l.alert)).map((a) => a.symbol)]),
+      ...new Set([
+        ...watchlists.flatMap(watchlistSymbols),
+        ...plans.filter((p) => ACTIVE_PLAN_STATUSES.includes(p.status)).map((p) => p.symbol),
+        ...trades.map((t) => t.symbol),
+        ...assets.filter((a) => a.levels.some((l) => l.alert)).map((a) => a.symbol),
+      ]),
     ];
   }
 
@@ -127,7 +148,7 @@ export class AlertEngine {
   onQuotes(quotes: Record<string, Quote>) {
     return this.serial(async () => {
       const cfg = await this.getConfig();
-      const { plans, assets } = await this.data();
+      const { plans, trades, assets } = await this.data();
       const live = (s: string) => (this.opts.isLive ? this.opts.isLive(s) : true);
 
       if (cfg.plans) {
@@ -138,6 +159,18 @@ export class AlertEngine {
           const { state, fire } = evaluatePlanPrice(p, q.price, await this.getState<PlanAlertState>(id), cfg.approachPips);
           await this.setState(id, state);
           if (fire) await this.emit(planPriceAlert(p, fire, q.price, this.opts.publicUrl));
+        }
+      }
+
+      if (cfg.trades) {
+        for (const t of trades) {
+          const q = quotes[t.symbol];
+          if (!q || t.status !== 'open' || !live(t.symbol)) continue;
+          const id = `trade:${t.id}`;
+          const stop = t.currentStop ?? t.initialStop;
+          const { state, fires } = evaluateTradePrice({ ...t, stop }, q.price, await this.getState<TradeAlertState>(id), cfg.approachPips);
+          await this.setState(id, state);
+          for (const f of fires) await this.emit(tradePriceAlert(t, f, q.price, stop, this.opts.publicUrl));
         }
       }
 
@@ -316,6 +349,18 @@ export class AlertEngine {
         updatedAt: now,
       });
     }
+    if (d.tradeId) {
+      const now = nowUtcIso();
+      await this.store.notes.create({
+        parentKind: 'trade',
+        parentId: d.tradeId,
+        parentKey: parentKey('trade', d.tradeId),
+        symbol: d.symbol,
+        body: note ?? `🔔 התראה: ${d.title}${d.body ? ` — ${d.body}` : ''}`,
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
     return ev;
   }
 }
@@ -327,6 +372,41 @@ const planBase = (p: Plan) => ({ source: 'engine' as const, symbol: p.symbol, pl
 
 function zoneText(p: Plan) {
   return p.entryHigh && p.entryHigh !== p.entryLow ? `${p.entryLow}–${p.entryHigh}` : `${p.entryLow}`;
+}
+
+function tradePriceAlert(t: Trade, f: TradeFire, price: string, stop: string, publicUrl?: string | null): Draft {
+  const dir = DIRECTION_LABELS[t.direction];
+  const sym = escapeHtml(t.symbol);
+  const open = tradeStats(t).openQty;
+  const linkHtml = link(publicUrl, `/trades/${t.id}`, 'לעסקה');
+  const base = { source: 'engine' as const, symbol: t.symbol, planId: t.planId, ideaId: t.ideaId, tradeId: t.id, price };
+  if (f.kind === 'trade_target') {
+    const tp = t.targets[f.index]!.price;
+    return {
+      ...base,
+      kind: 'trade_target',
+      title: `${t.symbol} הגיע ליעד TP${f.index + 1} (${tp})`,
+      body: `${dir} · מחיר ${price} · כמות פתוחה ${open}`,
+      html: `🎯 <b>${sym}</b> הגיע ליעד TP${f.index + 1} (${escapeHtml(tp)})\n${dir} · מחיר ${escapeHtml(price)} · כמות פתוחה ${escapeHtml(open)}\nאם מימשת — עדכן יציאה ביומן. אולי להזיז סטופ?${linkHtml}`,
+    };
+  }
+  if (f.kind === 'trade_stop_near') {
+    const pips = t.assetClass === 'forex' ? decStr(dec(price).minus(dec(stop)).abs().div(pipSize(t.symbol)).toDecimalPlaces(1)) : null;
+    return {
+      ...base,
+      kind: 'trade_stop_near',
+      title: `${t.symbol} מתקרב לסטופ ${stop}`,
+      body: `${dir} · מחיר ${price}${pips ? ` (${pips} פיפס מהסטופ)` : ''}`,
+      html: `⚠️ <b>${sym}</b> מתקרב לסטופ ${escapeHtml(stop)}\n${dir} · מחיר ${escapeHtml(price)}${pips ? ` (${pips} פיפס)` : ''}\nלא להזיז את הסטופ מתוך פחד — רק לפי התוכנית.${linkHtml}`,
+    };
+  }
+  return {
+    ...base,
+    kind: 'trade_stop',
+    title: `${t.symbol} הגיע לסטופ ${stop}`,
+    body: `${dir} · מחיר ${price} · כמות פתוחה ${open}`,
+    html: `🔴 <b>${sym}</b> הגיע לסטופ ${escapeHtml(stop)}\n${dir} · מחיר ${escapeHtml(price)}\nאם העסקה נסגרה — עדכן יציאה ביומן, ורשום מצב רגשי ולקח.${linkHtml}`,
+  };
 }
 
 function planPriceAlert(p: Plan, fire: PlanFire, price: string, publicUrl?: string | null): Draft {

@@ -3,6 +3,8 @@ import express, { Router } from 'express';
 import {
   ACTIVE_PLAN_STATUSES,
   COMPLETE_PLAN_STATUSES,
+  NOTE_PARENT_KINDS,
+  PARENT_KINDS,
   assetDocId,
   assetPutSchema,
   ideaCreateSchema,
@@ -105,9 +107,11 @@ export function planningRouter(store: Store, files: FileStore, binFetcher?: Bina
     const idea = await store.ideas.get(req.params.id);
     if (!idea) throw notFound('הרעיון');
     if (idea.planId && (await store.plans.get(idea.planId))) throw new HttpError(409, 'לרעיון כבר יש תוכנית');
+    const wanted = typeof req.body?.accountId === 'string' ? req.body.accountId : null;
+    const accountId = wanted && (await store.accounts.get(wanted)) ? wanted : null; // the active account, when sent
     const now = nowUtcIso();
     const plan = await store.plans.create({
-      ...planCreateSchema.parse({ symbol: idea.symbol, ideaId: idea.id, tags: idea.tags, entryConditions: idea.title }),
+      ...planCreateSchema.parse({ symbol: idea.symbol, ideaId: idea.id, tags: idea.tags, entryConditions: idea.title, accountId }),
       createdAt: now,
       updatedAt: now,
     } satisfies Omit<Plan, 'id'>);
@@ -165,7 +169,7 @@ export function planningRouter(store: Store, files: FileStore, binFetcher?: Bina
 
   // ---------- notes ----------
   r.get('/notes', async (req, res) => {
-    const q = z.object({ parentKind: z.enum(['idea', 'plan', 'asset']), parentId: z.string().min(1) }).parse(req.query);
+    const q = z.object({ parentKind: z.enum(NOTE_PARENT_KINDS), parentId: z.string().min(1) }).parse(req.query);
     const list = await store.notes.list({ field: 'parentKey', value: parentKey(q.parentKind, q.parentId) });
     res.json(list.sort((a, b) => b.createdAt.localeCompare(a.createdAt)));
   });
@@ -199,7 +203,7 @@ export function planningRouter(store: Store, files: FileStore, binFetcher?: Bina
 
   // ---------- screenshots ----------
   r.get('/screenshots', async (req, res) => {
-    const q = z.object({ parentKind: z.enum(['idea', 'plan', 'asset', 'note']).optional(), parentId: z.string().optional(), symbol: z.string().optional() }).parse(req.query);
+    const q = z.object({ parentKind: z.enum(PARENT_KINDS).optional(), parentId: z.string().optional(), symbol: z.string().optional() }).parse(req.query);
     let list: StoredScreenshot[];
     if (q.parentKind && q.parentId) list = await store.screenshots.list({ field: 'parentKey', value: parentKey(q.parentKind, q.parentId) });
     else if (q.symbol) list = await store.screenshots.list({ field: 'symbol', value: normalizeSymbol(q.symbol) });

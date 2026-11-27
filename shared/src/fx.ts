@@ -26,20 +26,34 @@ export function parseFxcmgrQuote(json: unknown): string {
   return decStr(new Decimal(r).toSignificantDigits(8));
 }
 
+export interface TvQuote {
+  price: string;
+  /** 0 = real time; otherwise how many minutes the feed is behind (e.g. 15 for stocks without a subscription). */
+  delayedMin: number;
+  /** TradingView's description ("Bitcoin / U.S. dollar"). */
+  name: string;
+}
+
 /**
- * TradingView scanner response (columns: close, pricescale, update_mode) → { "FX:GBPJPY": "209.257" }.
- * Only real-time rows ("streaming"): delayed data (e.g. stocks without a subscription, 15 min) is dropped,
- * so a delayed price is never shown or alerted on as if it were live. Unknown symbols are simply absent.
+ * TradingView scanner response (columns: close, pricescale, update_mode, description) → quotes.
+ * Real-time ("streaming") and delayed ("delayed_streaming_<seconds>") rows are kept, the delay recorded,
+ * so a delayed price is shown as delayed and never alerted on. Other modes (end of day…) are dropped.
  */
-export function parseTvScan(json: unknown): Record<string, string> {
+export function parseTvScan(json: unknown): Record<string, TvQuote> {
   const rows = (json as { data?: Array<{ s?: unknown; d?: unknown[] }> })?.data;
-  const out: Record<string, string> = {};
+  const out: Record<string, TvQuote> = {};
   for (const row of Array.isArray(rows) ? rows : []) {
-    const [close, scale, mode] = row.d ?? [];
-    if (typeof row.s !== 'string' || mode !== 'streaming') continue;
+    const [close, scale, mode, desc] = row.d ?? [];
+    if (typeof row.s !== 'string' || typeof mode !== 'string') continue;
+    const delayed = /^delayed_streaming_(\d+)$/.exec(mode);
+    if (mode !== 'streaming' && !delayed) continue;
     if (typeof close !== 'number' || !Number.isFinite(close) || close <= 0) continue;
     const dp = typeof scale === 'number' && scale >= 1 ? Math.min(10, Math.round(Math.log10(scale))) : 8;
-    out[row.s] = decStr(new Decimal(close).toDecimalPlaces(dp));
+    out[row.s] = {
+      price: decStr(new Decimal(close).toDecimalPlaces(dp)),
+      delayedMin: delayed ? Math.max(1, Math.round(Number(delayed[1]) / 60)) : 0,
+      name: typeof desc === 'string' ? desc.slice(0, 120) : '',
+    };
   }
   return out;
 }

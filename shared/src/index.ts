@@ -7,3 +7,5 @@ export * from './broker';
 export * from './planning';
 export * from './sizing';
 export * from './alerts';
+export * from './journal';
+export * from './watchlists';

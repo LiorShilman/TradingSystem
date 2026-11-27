@@ -1,7 +1,7 @@
-import { parseTvScan } from '@trading/shared';
+import { parseTvScan, type TvQuote } from '@trading/shared';
 
-/** Real-time prices by TradingView symbol ("FX:GBPJPY" → "209.257"). Symbols without a live price are absent. */
-export type TvQuoteClient = (symbols: string[]) => Promise<Record<string, string>>;
+/** Prices by TradingView symbol, real-time or flagged as delayed. Symbols TradingView doesn't know are absent. */
+export type TvQuoteClient = (symbols: string[]) => Promise<Record<string, TvQuote>>;
 
 const SCAN_URL = 'https://scanner.tradingview.com/global/scan';
 
@@ -14,7 +14,7 @@ export const defaultTvQuoteClient: TvQuoteClient = async (symbols) => {
   const res = await fetch(SCAN_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'User-Agent': 'Mozilla/5.0 (trading-journal)' },
-    body: JSON.stringify({ symbols: { tickers: symbols }, columns: ['close', 'pricescale', 'update_mode'] }),
+    body: JSON.stringify({ symbols: { tickers: symbols }, columns: ['close', 'pricescale', 'update_mode', 'description'] }),
     signal: AbortSignal.timeout(8000),
   });
   if (!res.ok) throw new Error(`TradingView scanner: HTTP ${res.status}`);

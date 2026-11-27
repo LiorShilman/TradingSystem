@@ -7,6 +7,7 @@ import { startFxScheduler } from './fx';
 import type { QuoteHub } from './quotes';
 import { Telegram, makeTelegramApi } from './telegram';
 import { defaultTvQuoteClient } from './tradingview';
+import { ensureWatchlists } from './routes/watchlists';
 import { connectFirestore, createFirestoreStore } from './store/firestore';
 
 const config = loadConfig();
@@ -25,7 +26,8 @@ const app = createApp(store, {
   tvQuoteClient: defaultTvQuoteClient,
 });
 
-app.listen(config.port, '127.0.0.1', () => {
+app.listen(config.port, '127.0.0.1', async () => {
+  await ensureWatchlists(store).catch((e) => console.error('[watchlists]', e instanceof Error ? e.message : e));
   console.log(`[server] listening on http://127.0.0.1:${config.port} (project ${config.firebaseProjectId})`);
   startFxScheduler(store); // FXCM every 5 min, public sources every 3 hours
   // Watchlist + active-plan + 🔔-level symbols every 20s → live tiles, sparklines and price alerts.
