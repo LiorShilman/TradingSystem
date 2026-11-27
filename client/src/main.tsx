@@ -7,6 +7,7 @@ import { Layout } from './components/Layout';
 import { AuthProvider, useAuth } from './lib/auth';
 import { AccountPage } from './pages/AccountPage';
 import { AccountsPage } from './pages/AccountsPage';
+import { AlertsPage } from './pages/AlertsPage';
 import { AssetPage } from './pages/AssetPage';
 import { AssetsPage } from './pages/AssetsPage';
 import { IdeaPage } from './pages/IdeaPage';
@@ -31,6 +32,7 @@ function App() {
         <Route path="ideas/:id" element={<IdeaPage />} />
         <Route path="assets" element={<AssetsPage />} />
         <Route path="assets/:symbol" element={<AssetPage />} />
+        <Route path="alerts" element={<AlertsPage />} />
         <Route path="accounts" element={<AccountsPage />} />
         <Route path="accounts/:id" element={<AccountPage />} />
         <Route path="settings" element={<SettingsPage />} />

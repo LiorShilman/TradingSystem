@@ -46,7 +46,7 @@ describe('ideas', () => {
   it('quick capture normalizes the symbol; dropped requires a reason', async () => {
     const res = await request(app).post('/api/ideas').set(auth).send({ symbol: 'eur/usd', title: 'פריצה מעל 1.09?' });
     expect(res.status).toBe(201);
-    expect(res.body).toMatchObject({ symbol: 'FXCM:EURUSD', status: 'raw', tags: [] });
+    expect(res.body).toMatchObject({ symbol: 'FX:EURUSD', status: 'raw', tags: [] });
     const drop = await request(app).patch(`/api/ideas/${res.body.id}`).set(auth).send({ status: 'dropped' });
     expect(drop.status).toBe(409);
     expect(drop.body.details[0]).toContain('למה');
@@ -61,7 +61,7 @@ describe('ideas', () => {
     const idea = (await request(app).post('/api/ideas').set(auth).send({ symbol: 'GBPUSD', title: 'דאבל בוטום', tags: ['H4'] })).body;
     const plan = await request(app).post(`/api/ideas/${idea.id}/to-plan`).set(auth);
     expect(plan.status).toBe(201);
-    expect(plan.body).toMatchObject({ symbol: 'FXCM:GBPUSD', ideaId: idea.id, status: 'draft', tags: ['H4'], entryConditions: 'דאבל בוטום' });
+    expect(plan.body).toMatchObject({ symbol: 'FX:GBPUSD', ideaId: idea.id, status: 'draft', tags: ['H4'], entryConditions: 'דאבל בוטום' });
     const after = (await request(app).get(`/api/ideas/${idea.id}`).set(auth)).body;
     expect(after).toMatchObject({ planId: plan.body.id, status: 'ready' });
     expect((await request(app).post(`/api/ideas/${idea.id}/to-plan`).set(auth)).status).toBe(409);
@@ -162,10 +162,10 @@ describe('assets', () => {
   it('research page per symbol + list with counts', async () => {
     await request(app).post('/api/ideas').set(auth).send({ symbol: 'EURUSD', title: 'a' });
     await request(app).post('/api/plans').set(auth).send({ symbol: 'EURUSD' });
-    const put = await request(app).put('/api/assets/FXCM:EURUSD').set(auth).send({ levels: [{ price: '1.0900', label: 'התנגדות שבועית' }], summary: 'מגמה עולה' });
+    const put = await request(app).put('/api/assets/FX:EURUSD').set(auth).send({ levels: [{ price: '1.0900', label: 'התנגדות שבועית' }], summary: 'מגמה עולה' });
     expect(put.status).toBe(200);
     expect((await request(app).get('/api/assets/eurusd').set(auth)).body.levels[0].label).toBe('התנגדות שבועית');
     const list = (await request(app).get('/api/assets').set(auth)).body;
-    expect(list[0]).toMatchObject({ symbol: 'FXCM:EURUSD', ideas: 1, plans: 1, activePlans: 1, hasResearch: true });
+    expect(list[0]).toMatchObject({ symbol: 'FX:EURUSD', ideas: 1, plans: 1, activePlans: 1, hasResearch: true });
   });
 });

@@ -1,9 +1,11 @@
 import express from 'express';
+import { AlertEngine } from './alerts';
 import type { FxcmgrClient } from './broker';
 import { FileStore, type BinaryFetcher } from './files';
 import type { Fetcher } from './fx';
 import { adminAuth, errorHandler } from './http';
 import { accountsRouter } from './routes/accounts';
+import { alertsRouter, webhookRouter } from './routes/alerts';
 import { brokerRouter, type BrokerDefaults } from './routes/broker';
 import { cashflowsRouter } from './routes/cashflows';
 import { exportRouter } from './routes/export';
@@ -25,6 +27,8 @@ export interface AppOptions {
   binaryFetcher?: BinaryFetcher;
   brokerDefaults?: BrokerDefaults;
   telegram?: Telegram;
+  webhookSecret?: string | null;
+  publicUrl?: string | null;
 }
 
 export function createApp(store: Store, opts: AppOptions) {
@@ -36,6 +40,9 @@ export function createApp(store: Store, opts: AppOptions) {
   const files = new FileStore(opts.filesDir, opts.adminKey);
   const quoteHub = new QuoteHub(store, opts.fxcmgrClient);
   app.locals.quoteHub = quoteHub;
+  const telegram = opts.telegram ?? new Telegram(null, store);
+  const alertEngine = new AlertEngine(store, telegram, { publicUrl: opts.publicUrl, isLive: (s) => quoteHub.isLive(s) });
+  app.locals.alertEngine = alertEngine;
   const api = express.Router();
 
   // Public: liveness only, no data.
@@ -49,6 +56,8 @@ export function createApp(store: Store, opts: AppOptions) {
   });
   // Public but signed: images for <img> tags.
   api.use('/files', filesRouter(store, files));
+  // Public, secret in the body: TradingView alerts.
+  api.use(webhookRouter(alertEngine, opts.webhookSecret ?? null));
 
   api.use(adminAuth(opts.adminKey));
   api.get('/auth/check', (_req, res) => {
@@ -60,8 +69,14 @@ export function createApp(store: Store, opts: AppOptions) {
   api.use('/settings', settingsRouter(store));
   api.use('/fx', fxRouter(store, { fetcher: opts.fxFetcher, fxcmgrClient: opts.fxcmgrClient }));
   api.use('/quotes', quotesRouter(quoteHub));
+  // Any change to plans/ideas/assets → the alert engine reloads its cached copy.
+  api.use((req, res, next) => {
+    if (req.method !== 'GET') res.on('finish', () => alertEngine.invalidate());
+    next();
+  });
   api.use(planningRouter(store, files, opts.binaryFetcher));
-  api.use('/telegram', telegramRouter(store, opts.telegram ?? new Telegram(null, store)));
+  api.use('/alerts', alertsRouter(store, alertEngine, { secret: opts.webhookSecret ?? null, publicUrl: opts.publicUrl ?? null }));
+  api.use('/telegram', telegramRouter(store, telegram));
   api.use('/export', exportRouter(store));
   api.use((_req, res) => {
     res.status(404).json({ error: 'נתיב לא קיים' });

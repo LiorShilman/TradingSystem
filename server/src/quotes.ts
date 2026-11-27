@@ -64,18 +64,29 @@ export class QuoteHub {
     return out;
   }
 
+  /**
+   * The price actually moved within the window. A frozen feed (pair missing from the FXCM
+   * subscription list, or right after a restart) is never treated as live — alerts skip it.
+   */
+  isLive(symbol: string, windowMs = 15 * 60 * 1000): boolean {
+    const since = Date.now() - windowMs;
+    const recent = (this.history.get(symbol) ?? []).filter(([t]) => t >= since);
+    return new Set(recent.map(([, p]) => p)).size > 1;
+  }
+
   historyFor(symbols: string[]): Record<string, Array<[number, string]>> {
     return Object.fromEntries(symbols.map((s) => [s, this.history.get(s) ?? []]));
   }
 
   /** Background sampling of the watchlist + symbols of active plans, so sparklines fill even with no page open. */
-  startSampler(extraSymbols: () => Promise<string[]> = async () => []) {
+  startSampler(extraSymbols: () => Promise<string[]> = async () => [], onTick?: (quotes: Record<string, Quote>) => Promise<void>) {
     const tick = async () => {
       try {
         const extra = await extraSymbols();
         // Force a refresh by treating everything as stale for this tick.
         for (const s of [...COMMON_FX_SYMBOLS, ...extra]) this.latest.delete(s);
-        await this.get([...new Set([...COMMON_FX_SYMBOLS, ...extra])]);
+        const quotes = await this.get([...new Set([...COMMON_FX_SYMBOLS, ...extra])]);
+        if (onTick) await onTick(quotes);
       } catch (e) {
         console.error('[quotes]', e instanceof Error ? e.message : e);
       }

@@ -13,6 +13,10 @@ export interface Config {
   fxcmgrUrl: string;
   fxcmgrHost: string;
   telegramToken: string | null;
+  /** TradingView webhook secret (in the alert message body). Null → webhook disabled. */
+  webhookSecret: string | null;
+  /** Public base URL of the app (links in Telegram, webhook URL). */
+  publicUrl: string | null;
 }
 
 export function loadConfig(): Config {
@@ -30,5 +34,7 @@ export function loadConfig(): Config {
     fxcmgrUrl: process.env.FXCMGR_URL ?? 'http://localhost:11000',
     fxcmgrHost: process.env.FXCMGR_HOST ?? '',
     telegramToken: process.env.TELEGRAM_BOT_TOKEN?.trim().replace(/^["']|["']$/g, '') || null,
+    webhookSecret: (process.env.WEBHOOK_SECRET?.trim().length ?? 0) >= 24 ? process.env.WEBHOOK_SECRET!.trim() : null,
+    publicUrl: process.env.PUBLIC_URL?.trim() || null,
   };
 }

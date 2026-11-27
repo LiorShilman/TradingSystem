@@ -1,7 +1,7 @@
 import { useId, useState } from 'react';
 import { COMMON_FX_SYMBOLS, normalizeSymbol } from '@trading/shared';
 
-/** Free text that normalizes to TradingView format on blur ("eurusd" → "FXCM:EURUSD"). */
+/** Free text that normalizes to TradingView format on blur ("eurusd" → "FX:EURUSD"). */
 export function SymbolInput({
   value,
   onChange,
@@ -23,7 +23,7 @@ export function SymbolInput({
         list={listId}
         value={value}
         autoFocus={autoFocus}
-        placeholder="EURUSD / FXCM:EURUSD"
+        placeholder="EURUSD / FX:EURUSD"
         onChange={(e) => {
           setBad(false);
           onChange(e.target.value);

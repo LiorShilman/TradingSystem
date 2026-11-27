@@ -3,21 +3,24 @@ import { Link } from 'react-router-dom';
 import { dec, symbolTicker } from '@trading/shared';
 
 // Windows doesn't render flag emojis, so currencies get colored badges with their sign.
-const CCY: Record<string, { sign: string; cls: string }> = {
-  USD: { sign: '$', cls: 'bg-emerald-500/15 text-emerald-600 ring-emerald-500/30 dark:text-emerald-300' },
-  EUR: { sign: '€', cls: 'bg-blue-500/15 text-blue-600 ring-blue-500/30 dark:text-blue-300' },
-  GBP: { sign: '£', cls: 'bg-violet-500/15 text-violet-600 ring-violet-500/30 dark:text-violet-300' },
-  JPY: { sign: '¥', cls: 'bg-rose-500/15 text-rose-600 ring-rose-500/30 dark:text-rose-300' },
-  CHF: { sign: '₣', cls: 'bg-red-500/15 text-red-600 ring-red-500/30 dark:text-red-300' },
-  AUD: { sign: 'A$', cls: 'bg-amber-500/15 text-amber-600 ring-amber-500/30 dark:text-amber-300' },
-  CAD: { sign: 'C$', cls: 'bg-orange-500/15 text-orange-600 ring-orange-500/30 dark:text-orange-300' },
-  NZD: { sign: 'N$', cls: 'bg-teal-500/15 text-teal-600 ring-teal-500/30 dark:text-teal-300' },
+const CCY: Record<string, { sign: string; cls: string; accent: string; name: string }> = {
+  USD: { sign: '$', cls: 'bg-emerald-500/15 text-emerald-600 ring-emerald-500/30 dark:text-emerald-300', accent: 'border-s-emerald-500', name: 'דולר אמריקאי' },
+  EUR: { sign: '€', cls: 'bg-blue-500/15 text-blue-600 ring-blue-500/30 dark:text-blue-300', accent: 'border-s-blue-500', name: 'אירו' },
+  GBP: { sign: '£', cls: 'bg-violet-500/15 text-violet-600 ring-violet-500/30 dark:text-violet-300', accent: 'border-s-violet-500', name: 'לירה שטרלינג' },
+  JPY: { sign: '¥', cls: 'bg-rose-500/15 text-rose-600 ring-rose-500/30 dark:text-rose-300', accent: 'border-s-rose-500', name: 'ין יפני' },
+  CHF: { sign: '₣', cls: 'bg-red-500/15 text-red-600 ring-red-500/30 dark:text-red-300', accent: 'border-s-red-500', name: 'פרנק שווייצרי' },
+  AUD: { sign: 'A$', cls: 'bg-amber-500/15 text-amber-600 ring-amber-500/30 dark:text-amber-300', accent: 'border-s-amber-500', name: 'דולר אוסטרלי' },
+  CAD: { sign: 'C$', cls: 'bg-orange-500/15 text-orange-600 ring-orange-500/30 dark:text-orange-300', accent: 'border-s-orange-500', name: 'דולר קנדי' },
+  NZD: { sign: 'N$', cls: 'bg-teal-500/15 text-teal-600 ring-teal-500/30 dark:text-teal-300', accent: 'border-s-teal-500', name: 'דולר ניו זילנדי' },
 };
 
-function Badge({ code, className = '' }: { code: string; className?: string }) {
+/** Accent border class and Hebrew name of a currency (for section headers). */
+export const currencyMeta = (code: string) => CCY[code] ?? { sign: code[0] ?? '?', cls: 'bg-slate-500/15 text-slate-500 ring-slate-500/30', accent: 'border-s-slate-500', name: code };
+
+export function Badge({ code, className = '' }: { code: string; className?: string }) {
   const c = CCY[code] ?? { sign: code[0], cls: 'bg-slate-500/15 text-slate-500 ring-slate-500/30' };
   return (
-    <span className={`inline-flex size-7 items-center justify-center rounded-full text-[11px] font-bold ring-1 ring-inset backdrop-blur ${c.cls} ${className}`} title={code}>
+    <span className={`inline-flex size-7 items-center justify-center rounded-full text-[11px] font-bold ring-1 ring-inset backdrop-blur ${c.cls} ${className}`} title={code} dir="ltr">
       {c.sign}
     </span>
   );

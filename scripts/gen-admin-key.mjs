@@ -1,10 +1,16 @@
-// Creates server/.env with a random ADMIN_KEY if one is not set yet.
+// Creates server/.env with a random ADMIN_KEY (and WEBHOOK_SECRET) if not set yet.
 // Never prints the key. Open server/.env yourself to copy it.
 import { randomBytes } from 'node:crypto';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 
 const path = new URL('../server/.env', import.meta.url);
 let content = existsSync(path) ? readFileSync(path, 'utf8') : '';
+// TradingView webhook secret — added on its own if missing.
+if (!/^WEBHOOK_SECRET=.+/m.test(content)) {
+  content += (content && !content.endsWith('\n') ? '\n' : '') + `WEBHOOK_SECRET=${randomBytes(24).toString('base64url')}\n`;
+  writeFileSync(path, content);
+  console.log('נוצר WEBHOOK_SECRET ב-server/.env (לא מוצג כאן).');
+}
 if (/^ADMIN_KEY=.+/m.test(content)) {
   console.log('ADMIN_KEY כבר קיים ב-server/.env — לא שיניתי כלום.');
   process.exit(0);

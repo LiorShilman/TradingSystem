@@ -2,13 +2,16 @@ import { z } from 'zod';
 import { Decimal, dec, decStr, decString, isDecString } from './money';
 import { utcIsoString } from './time';
 
-// ---------- symbols (TradingView format everywhere: "FXCM:EURUSD") ----------
+// ---------- symbols (TradingView format everywhere: "FX:EURUSD") ----------
 const SYMBOL_RE = /^[A-Z0-9_.]+:[A-Z0-9_.!&-]+$/;
 
-/** Bare FX tickers get this TradingView exchange prefix — matches the user's FXCM watchlist. */
-export const DEFAULT_FX_EXCHANGE = 'FXCM';
+/**
+ * Bare FX tickers get this TradingView exchange prefix. On TradingView the FXCM feed's exchange code is "FX"
+ * ("FXCM:" is not a valid TradingView symbol) — this matches the user's "All Forex (FXCM)" watchlist.
+ */
+export const DEFAULT_FX_EXCHANGE = 'FX';
 
-/** "eurusd" → "FXCM:EURUSD", "EUR/USD" → "FXCM:EURUSD", "nasdaq:aapl" → "NASDAQ:AAPL". Null if not a symbol. */
+/** "eurusd" → "FX:EURUSD", "EUR/USD" → "FX:EURUSD", "nasdaq:aapl" → "NASDAQ:AAPL". Null if not a symbol. */
 export function normalizeSymbol(raw: string): string | null {
   let s = raw.trim().toUpperCase().replace(/\s+/g, '');
   if (!s) return null;
@@ -17,13 +20,14 @@ export function normalizeSymbol(raw: string): string | null {
     if (/^[A-Z]{6}$/.test(fx)) s = `${DEFAULT_FX_EXCHANGE}:${fx}`;
     else return null;
   }
+  if (s.startsWith('FXCM:')) s = `${DEFAULT_FX_EXCHANGE}:${s.slice(5)}`; // legacy prefix (before 2026-11-27)
   return SYMBOL_RE.test(s) ? s : null;
 }
 
 export const symbolString = z.string().transform((v, ctx) => {
   const n = normalizeSymbol(v);
   if (!n) {
-    ctx.addIssue({ code: 'custom', message: 'סימול לא תקין (למשל EURUSD או FXCM:EURUSD)' });
+    ctx.addIssue({ code: 'custom', message: 'סימול לא תקין (למשל EURUSD או FX:EURUSD)' });
     return z.NEVER;
   }
   return n;
@@ -31,7 +35,7 @@ export const symbolString = z.string().transform((v, ctx) => {
 
 export const symbolTicker = (symbol: string) => symbol.split(':')[1] ?? symbol;
 
-/** "FXCM:EURUSD" → "EUR/USD" (FXCM pair name), or null when not a 6-letter FX ticker. */
+/** "FX:EURUSD" → "EUR/USD" (FXCM pair name), or null when not a 6-letter FX ticker. */
 export function fxPair(symbol: string): string | null {
   const t = symbolTicker(symbol);
   return /^[A-Z]{6}$/.test(t) ? `${t.slice(0, 3)}/${t.slice(3)}` : null;
@@ -276,7 +280,8 @@ export interface Screenshot {
 
 // ---------- assets (per-symbol research) ----------
 export const assetPutSchema = z.object({
-  levels: z.array(z.object({ price: decString, label: z.string().trim().max(100) })).max(30),
+  /** alert: send a Telegram alert when the price crosses this level. */
+  levels: z.array(z.object({ price: decString, label: z.string().trim().max(100), alert: z.boolean().default(false) })).max(30),
   summary: z.string().max(20000),
 });
 export interface AssetDoc extends z.infer<typeof assetPutSchema> {

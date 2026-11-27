@@ -6,3 +6,4 @@ export * from './fx';
 export * from './broker';
 export * from './planning';
 export * from './sizing';
+export * from './alerts';

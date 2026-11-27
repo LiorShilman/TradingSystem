@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Decimal, dec, decStr, symbolTicker, type Plan } from '@trading/shared';
+import { Decimal, dec, decStr, pipSize, type Plan } from '@trading/shared';
 import { api } from './api';
 
 export interface Quote {
@@ -29,7 +29,7 @@ export function useQuotes(symbols: string[]) {
   return quotes;
 }
 
-export const pipSize = (symbol: string) => (symbolTicker(symbol).endsWith('JPY') ? new Decimal('0.01') : new Decimal('0.0001'));
+export { pipSize };
 
 /** Where the price is relative to the entry zone: "באזור", or distance in pips (forex) / price units. */
 export function zoneDistance(p: Pick<Plan, 'symbol' | 'assetClass' | 'entryLow' | 'entryHigh'>, price: string): { inZone: boolean; text: string; abs: Decimal } | null {

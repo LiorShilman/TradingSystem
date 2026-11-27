@@ -104,7 +104,7 @@ function AssetView({ symbol }: { symbol: string }) {
 }
 
 function Research({ initial, symbol }: { initial: AssetDoc; symbol: string }) {
-  const [levels, setLevels] = useState(initial.levels.length ? initial.levels : [{ price: '', label: '' }]);
+  const [levels, setLevels] = useState(initial.levels.length ? initial.levels.map((l) => ({ ...l, alert: !!l.alert })) : [{ price: '', label: '', alert: false }]);
   const [summary, setSummary] = useState(initial.summary);
   const [badRow, setBadRow] = useState<number | null>(null);
 
@@ -117,7 +117,7 @@ function Research({ initial, symbol }: { initial: AssetDoc; symbol: string }) {
         setBadRow(i);
         throw new Error('מחיר לא תקין באחת הרמות');
       }
-      clean.push({ price: p, label: l.label });
+      clean.push({ price: p, label: l.label, alert: l.alert });
     }
     setBadRow(null);
     await api(`/assets/${encodeURIComponent(symbol)}`, { method: 'PUT', body: { levels: clean, summary: v.summary } });
@@ -133,7 +133,9 @@ function Research({ initial, symbol }: { initial: AssetDoc; symbol: string }) {
         <textarea className="input min-h-28" value={summary} onChange={(e) => setSummary(e.target.value)} placeholder="מגמה, הקשר פונדמנטלי, מה חשוב לזכור על הנכס" />
       </Field>
       <div className="space-y-2">
-        <div className="text-sm font-medium">רמות מפתח</div>
+        <div className="text-sm font-medium">
+          רמות מפתח <span className="text-xs font-normal text-slate-500">· 🔔 = התראה בטלגרם כשהמחיר חוצה את הרמה</span>
+        </div>
         {levels.map((l, i) => (
           <div key={i} className="flex gap-2">
             <input
@@ -145,12 +147,21 @@ function Research({ initial, symbol }: { initial: AssetDoc; symbol: string }) {
               onChange={(e) => setLevels(levels.map((x, j) => (j === i ? { ...x, price: e.target.value } : x)))}
             />
             <input className="input" placeholder="למשל: התנגדות שבועית" value={l.label} onChange={(e) => setLevels(levels.map((x, j) => (j === i ? { ...x, label: e.target.value } : x)))} />
+            <button
+              type="button"
+              className={`shrink-0 rounded-lg px-2 text-base transition ${l.alert ? 'bg-amber-400/20' : 'opacity-40 grayscale hover:opacity-80'}`}
+              aria-pressed={l.alert}
+              title={l.alert ? 'התראה בחציית הרמה — פעילה' : 'הפעל התראה בטלגרם כשהמחיר חוצה את הרמה'}
+              onClick={() => setLevels(levels.map((x, j) => (j === i ? { ...x, alert: !x.alert } : x)))}
+            >
+              🔔
+            </button>
             <button type="button" className="text-sm text-red-600" aria-label="הסר רמה" onClick={() => setLevels(levels.filter((_, j) => j !== i))}>
               ✕
             </button>
           </div>
         ))}
-        <button type="button" className="text-sm text-sky-600 hover:underline" onClick={() => setLevels([...levels, { price: '', label: '' }])}>
+        <button type="button" className="text-sm text-sky-600 hover:underline" onClick={() => setLevels([...levels, { price: '', label: '', alert: false }])}>
           + רמה
         </button>
       </div>

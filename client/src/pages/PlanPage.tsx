@@ -27,6 +27,7 @@ import {
   type Settings,
 } from '@trading/shared';
 import { NotesTimeline } from '../components/Notes';
+import { WebhookSetup } from './AlertsPage';
 import { ScreenshotGallery } from '../components/Screenshots';
 import { SymbolInput, TagsInput } from '../components/SymbolInput';
 import { TradingViewChart } from '../components/TradingViewChart';
@@ -347,6 +348,12 @@ function PlanEditor({ initial }: { initial: Plan }) {
       <div className="card">
         <NotesTimeline parentKind="plan" parentId={plan.id} symbol={plan.symbol} />
       </div>
+      <details className="group">
+        <summary className="cursor-pointer text-sm text-sky-600 hover:underline">📡 התראת TradingView לתוכנית הזו</summary>
+        <div className="mt-3">
+          <WebhookSetup planId={plan.id} />
+        </div>
+      </details>
         </div>
       </div>
 

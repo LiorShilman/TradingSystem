@@ -5,6 +5,7 @@ const NAV = [
   { to: '/plans', label: 'תוכניות' },
   { to: '/ideas', label: 'רעיונות' },
   { to: '/assets', label: 'נכסים' },
+  { to: '/alerts', label: 'התראות' },
   { to: '/accounts', label: 'חשבונות' },
   { to: '/settings', label: 'הגדרות' },
 ];

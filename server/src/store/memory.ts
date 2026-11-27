@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import type { FxSnapshot, Settings } from '@trading/shared';
+import type { AlertConfig, FxSnapshot, Settings } from '@trading/shared';
 import type { TelegramLink } from '../telegram';
 import type { Collection, Doc, Store } from './types';
 
@@ -40,6 +40,7 @@ export function createMemoryStore(): Store {
   let settings: Settings | null = null;
   let fx: FxSnapshot | null = null;
   let telegram: TelegramLink | null = null;
+  let alertConfig: AlertConfig | null = null;
   return {
     accounts: new MemoryCollection(),
     cashflows: new MemoryCollection(),
@@ -48,6 +49,16 @@ export function createMemoryStore(): Store {
     notes: new MemoryCollection(),
     screenshots: new MemoryCollection(),
     assets: new MemoryCollection(),
+    alerts: new MemoryCollection(),
+    alertStates: new MemoryCollection(),
+    alertConfig: {
+      async get() {
+        return alertConfig ? structuredClone(alertConfig) : null;
+      },
+      async set(c) {
+        alertConfig = structuredClone(c);
+      },
+    },
     settings: {
       async get() {
         return settings ? structuredClone(settings) : null;

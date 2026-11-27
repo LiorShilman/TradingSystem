@@ -4,14 +4,16 @@ import { positionSize } from './sizing';
 
 describe('symbols', () => {
   it('normalizes to TradingView format', () => {
-    expect(normalizeSymbol('eurusd')).toBe('FXCM:EURUSD');
-    expect(normalizeSymbol('EUR/USD')).toBe('FXCM:EURUSD');
+    expect(normalizeSymbol('eurusd')).toBe('FX:EURUSD');
+    expect(normalizeSymbol('EUR/USD')).toBe('FX:EURUSD');
+    expect(normalizeSymbol('fxcm:gbpjpy')).toBe('FX:GBPJPY');
     expect(normalizeSymbol(' nasdaq:aapl ')).toBe('NASDAQ:AAPL');
     expect(normalizeSymbol('BINANCE:BTCUSDT')).toBe('BINANCE:BTCUSDT');
     expect(normalizeSymbol('apple')).toBeNull();
     expect(normalizeSymbol('')).toBeNull();
   });
   it('maps to FXCM pair names', () => {
+    expect(fxPair('FX:EURUSD')).toBe('EUR/USD');
     expect(fxPair('OANDA:EURUSD')).toBe('EUR/USD');
     expect(fxPair('NASDAQ:AAPL')).toBeNull();
   });

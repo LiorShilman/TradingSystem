@@ -9,7 +9,8 @@
     "build": "tsup",
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run",
-    "check:firebase": "tsx src/scripts/check-firebase.ts"
+    "check:firebase": "tsx src/scripts/check-firebase.ts",
+    "migrate:fx-prefix": "tsx src/scripts/migrate-fx-prefix.ts"
   },
   "dependencies": {
     "@trading/shared": "*",
