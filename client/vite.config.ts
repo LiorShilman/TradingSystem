@@ -6,6 +6,8 @@ import { defineConfig } from 'vite';
 export default defineConfig({
   base: process.env.VITE_BASE ?? '/',
   plugins: [react(), tailwindcss()],
+  // Not "assets": that folder would shadow the SPA route /assets under IIS (refresh → 301 to the directory).
+  build: { assetsDir: 'static' },
   server: {
     // 5173 is taken on this machine (WSL). strictPort: fail loudly instead of silently picking another port.
     // Explicit IPv4: by default Vite bound only to [::1], so browsers resolving localhost → 127.0.0.1 got nothing.
