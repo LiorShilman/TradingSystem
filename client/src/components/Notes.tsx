@@ -33,6 +33,13 @@ export function NotesTimeline({
     void load();
   }, [load]);
 
+  // Notes added elsewhere on the page (e.g. the chart advisor's "save as note").
+  useEffect(() => {
+    const onChanged = () => void load();
+    window.addEventListener('notes:changed', onChanged);
+    return () => window.removeEventListener('notes:changed', onChanged);
+  }, [load]);
+
   async function add() {
     if (!text.trim()) return;
     setBusy(true);

@@ -1,6 +1,8 @@
 import { normalizeSymbol } from '@trading/shared';
 import express from 'express';
 import { AlertEngine } from './alerts';
+import { CandleHub } from './candles';
+import { advisorRouter, type AdvisorModel } from './routes/advisor';
 import type { FxcmgrClient } from './broker';
 import { FileStore, type BinaryFetcher } from './files';
 import type { Fetcher } from './fx';
@@ -37,18 +39,23 @@ export interface AppOptions {
   webhookUrl?: string | null;
   /** TradingView price fallback for pairs FXCM doesn't update. Off unless given (tests stay offline). */
   tvQuoteClient?: TvQuoteClient | null;
+  /** Chart advisor (Claude). Null/absent → the advisor answers 503. */
+  advisorModel?: AdvisorModel | null;
 }
 
 export function createApp(store: Store, opts: AppOptions) {
   const app = express();
   app.disable('x-powered-by');
   app.set('trust proxy', 'loopback'); // behind IIS on the same machine
+  // The advisor takes a chart screenshot (base64) in the body.
+  app.use('/api/advisor', express.json({ limit: '8mb' }));
   app.use(express.json({ limit: '1mb' }));
 
   const files = new FileStore(opts.filesDir, opts.adminKey);
   const quoteHub = new QuoteHub(store, { fxcmgr: opts.fxcmgrClient, tv: opts.tvQuoteClient });
   app.locals.quoteHub = quoteHub;
   const specHub = new SpecHub(store, opts.fxcmgrClient);
+  const candleHub = new CandleHub(store, opts.fxcmgrClient);
   const telegram = opts.telegram ?? new Telegram(null, store);
   const alertEngine = new AlertEngine(store, telegram, { publicUrl: opts.publicUrl, isLive: (s) => quoteHub.isLive(s) });
   app.locals.alertEngine = alertEngine;
@@ -91,6 +98,7 @@ export function createApp(store: Store, opts: AppOptions) {
     res.json(s ? await specHub.get(s) : null);
   });
   api.use('/watchlists', watchlistsRouter(store));
+  api.use('/advisor', advisorRouter(store, { quoteHub, candles: candleHub, specs: specHub }, opts.advisorModel ?? null));
   api.use('/alerts', alertsRouter(store, alertEngine, { secret: opts.webhookSecret ?? null, publicUrl: opts.publicUrl ?? null, webhookUrl: opts.webhookUrl ?? null }));
   api.use('/telegram', telegramRouter(store, telegram));
   api.use('/export', exportRouter(store));

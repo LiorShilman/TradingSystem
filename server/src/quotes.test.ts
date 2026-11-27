@@ -115,6 +115,22 @@ describe('QuoteHub sources', () => {
     expect(fxcmAsked).toEqual(['XAU/USD', 'US2000F', 'US2000']); // not asked again for 10 minutes
   });
 
+  it('a pair FXCM served before is retried within a minute when the bridge drops (weekend reconnect)', async () => {
+    const h = hub();
+    fxcm['EUR/USD'] = 1.0965;
+    tv['FX:EURUSD'] = '1.0966';
+    expect((await h.get(['FX:EURUSD']))['FX:EURUSD']!.source).toBe('fxcmgr');
+    delete fxcm['EUR/USD']; // bridge reconnecting
+    step();
+    expect((await h.get(['FX:EURUSD']))['FX:EURUSD']!.source).toBe('tradingview');
+    fxcm['EUR/USD'] = 1.0967; // back
+    step(15_000);
+    await h.get(['FX:EURUSD']);
+    expect(fxcmAsked).toHaveLength(2); // still within the 30s back-off
+    step(20_000);
+    expect(await h.get(['FX:EURUSD'])).toMatchObject({ 'FX:EURUSD': { price: '1.0967', source: 'fxcmgr' } });
+  });
+
   it('index CFDs: FX:SPX500 is FXCM "SPX500F"', async () => {
     fxcm['SPX500F'] = 7300.94;
     expect(await hub().get(['FX:SPX500'])).toMatchObject({ 'FX:SPX500': { price: '7300.94', source: 'fxcmgr' } });

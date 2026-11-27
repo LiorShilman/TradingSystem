@@ -24,6 +24,8 @@ export interface Config {
    * next to the PM2 one (same Firestore, same bot) doesn't send every alert twice.
    */
   alertsEnabled: boolean;
+  /** Chart advisor (Claude). Null → the advisor is off. */
+  anthropicApiKey: string | null;
 }
 
 export function loadConfig(): Config {
@@ -44,6 +46,7 @@ export function loadConfig(): Config {
     webhookSecret: (process.env.WEBHOOK_SECRET?.trim().length ?? 0) >= 24 ? process.env.WEBHOOK_SECRET!.trim() : null,
     publicUrl: process.env.PUBLIC_URL?.trim() || null,
     webhookUrl: process.env.WEBHOOK_URL?.trim() || null,
+    anthropicApiKey: process.env.ANTHROPIC_API_KEY?.trim().replace(/^["']|["']$/g, '') || null,
     alertsEnabled: process.env.ALERTS_ENABLED ? process.env.ALERTS_ENABLED === 'true' : process.env.NODE_ENV === 'production',
   };
 }

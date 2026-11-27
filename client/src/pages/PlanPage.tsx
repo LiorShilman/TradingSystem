@@ -29,6 +29,7 @@ import {
   type Trade,
   type InstrumentSpec,
 } from '@trading/shared';
+import { AdvisorButton } from '../components/Advisor';
 import { NewTradeForm } from '../components/NewTradeForm';
 import { NotesTimeline } from '../components/Notes';
 import { WebhookSetup } from './AlertsPage';
@@ -193,7 +194,10 @@ function PlanEditor({ initial }: { initial: Plan }) {
             </span>
           )}
         </div>
-        <StatusActions status={plan.status} onSet={setStatus} onOpenTrade={() => setOpening((o) => !o)} />
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <StatusActions status={plan.status} onSet={setStatus} onOpenTrade={() => setOpening((o) => !o)} />
+          <AdvisorButton symbol={plan.symbol} planId={plan.id} accountId={plan.accountId} noteParent={{ kind: 'plan', id: plan.id }} />
+        </div>
         {opening && (
           <div className="rounded-xl border border-sky-300 bg-sky-50/50 p-4 dark:border-sky-800 dark:bg-sky-950/30">
             <h3 className="mb-2 font-semibold">פתחתי את העסקה — רישום ביומן</h3>

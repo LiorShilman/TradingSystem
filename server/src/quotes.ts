@@ -50,6 +50,8 @@ export function fxcmOffers(symbol: string): readonly string[] {
 
 /** An offer FXCM doesn't serve (not in the subscription) is retried only this often. */
 const UNKNOWN_OFFER_RETRY_MS = 10 * 60 * 1000;
+/** An offer FXCM has answered before that now fails (bridge restarting / reconnecting) is retried sooner. */
+const KNOWN_OFFER_RETRY_MS = 30 * 1000;
 
 const FRESH_MS = 15_000;
 const HISTORY_MS = 60 * 60 * 1000; // keep one hour
@@ -90,7 +92,10 @@ export class QuoteHub {
     this.now = opts.now ?? Date.now;
   }
 
-  private unknownOffer = new Map<string, number>();
+  /** Offer → when to ask FXCM again after a failure. */
+  private offerRetryAt = new Map<string, number>();
+  /** Offers FXCM has served at least once. */
+  private knownOffers = new Set<string>();
   private names = new Map<string, string>();
 
   private record(symbol: string, price: string, source: QuoteSource, delayedMin = 0) {
@@ -135,15 +140,17 @@ export class QuoteHub {
     if (cfg) {
       for (const symbol of stale) {
         for (const offer of fxcmOffers(symbol)) {
-          if (this.now() - (this.unknownOffer.get(offer) ?? -Infinity) < UNKNOWN_OFFER_RETRY_MS) continue;
+          if (this.now() < (this.offerRetryAt.get(offer) ?? -Infinity)) continue;
           try {
             const price = decStr(new Decimal(parseFxcmgrQuote(await this.fxcmgr(cfg, '/subscribe', `pairs=${offer}`))));
             fromFxcm[symbol] = price;
             this.noteFxcm(symbol, price);
-            this.unknownOffer.delete(offer);
+            this.offerRetryAt.delete(offer);
+            this.knownOffers.add(offer);
             break;
           } catch {
-            this.unknownOffer.set(offer, this.now()); // not in the FXCM subscription, or the bridge is down
+            // Never served: not in the FXCM subscription. Served before: the bridge is restarting or reconnecting.
+            this.offerRetryAt.set(offer, this.now() + (this.knownOffers.has(offer) ? KNOWN_OFFER_RETRY_MS : UNKNOWN_OFFER_RETRY_MS));
           }
         }
       }

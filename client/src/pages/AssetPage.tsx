@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { DIRECTION_LABELS, PLAN_STATUS_LABELS, normalizeDecInput, normalizeSymbol, type AssetDoc, type Idea, type Plan } from '@trading/shared';
+import { AdvisorButton } from '../components/Advisor';
 import { NotesTimeline } from '../components/Notes';
 import { ScreenshotGallery } from '../components/Screenshots';
 import { TradingViewChart } from '../components/TradingViewChart';
 import { ErrorBox, Field } from '../components/ui';
 import { api } from '../lib/api';
+import { useActiveAccount } from '../lib/activeAccount';
 import { useQuotes } from '../lib/plan';
 import { SaveIndicatorText, useAutosave } from '../lib/useAutosave';
 import { useAsync } from '../lib/useAsync';
@@ -24,6 +26,7 @@ function AssetView({ symbol }: { symbol: string }) {
   const ideas = useAsync(() => api<Idea[]>(`/ideas?symbol=${enc}`), [enc]);
   const plans = useAsync(() => api<Plan[]>(`/plans?symbol=${enc}`), [enc]);
   const quote = useQuotes([symbol])[symbol];
+  const { active } = useActiveAccount();
 
   return (
     <div className="space-y-6">
@@ -40,6 +43,7 @@ function AssetView({ symbol }: { symbol: string }) {
           </span>
         )}
         <div className="ms-auto flex gap-2">
+          <AdvisorButton symbol={symbol} accountId={active?.id ?? null} noteParent={{ kind: 'asset', id: symbol }} />
           <Link to={`/ideas?new=1&symbol=${enc}`} className="btn-ghost">
             + רעיון
           </Link>

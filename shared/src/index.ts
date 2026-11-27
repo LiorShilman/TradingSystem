@@ -9,3 +9,4 @@ export * from './sizing';
 export * from './alerts';
 export * from './journal';
 export * from './watchlists';
+export * from './advisor';

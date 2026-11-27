@@ -8,6 +8,7 @@ import type { QuoteHub } from './quotes';
 import { Telegram, makeTelegramApi } from './telegram';
 import { defaultTvQuoteClient } from './tradingview';
 import { ensureWatchlists } from './routes/watchlists';
+import { claudeAdvisorModel } from './routes/advisor';
 import { connectFirestore, createFirestoreStore } from './store/firestore';
 
 const config = loadConfig();
@@ -24,6 +25,7 @@ const app = createApp(store, {
   publicUrl: config.publicUrl,
   webhookUrl: config.webhookUrl,
   tvQuoteClient: defaultTvQuoteClient,
+  advisorModel: config.anthropicApiKey ? claudeAdvisorModel(config.anthropicApiKey) : null,
 });
 
 app.listen(config.port, '127.0.0.1', async () => {

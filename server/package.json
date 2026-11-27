@@ -13,6 +13,7 @@
     "migrate:fx-prefix": "tsx src/scripts/migrate-fx-prefix.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^1.14.0",
     "@trading/shared": "*",
     "dotenv": "^17.2.3",
     "express": "^5.1.0",
