@@ -29,10 +29,14 @@ app.listen(config.port, '127.0.0.1', () => {
   const engine = app.locals.alertEngine as AlertEngine;
   (app.locals.quoteHub as QuoteHub).startSampler(
     () => engine.watchedSymbols(),
-    (quotes) => engine.onQuotes(quotes),
+    config.alertsEnabled ? (quotes) => engine.onQuotes(quotes) : undefined,
   );
-  // Idea reminders and plan expiry, every minute.
-  void engine.onClock();
-  setInterval(() => void engine.onClock(), 60_000).unref();
+  if (config.alertsEnabled) {
+    // Idea reminders and plan expiry, every minute.
+    void engine.onClock();
+    setInterval(() => void engine.onClock(), 60_000).unref();
+  } else {
+    console.log('[alerts] מנוע ההתראות כבוי בשרת הזה (פועל רק ב-production, או ALERTS_ENABLED=true)');
+  }
   if (!config.webhookSecret) console.log('[alerts] WEBHOOK_SECRET לא מוגדר — webhook של TradingView כבוי');
 });

@@ -13,3 +13,6 @@ server/firebase-service-account.json
 
 # local data (screenshots, backups)
 server/data/
+
+# PM2 logs
+logs/

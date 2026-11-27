@@ -17,6 +17,11 @@ export interface Config {
   webhookSecret: string | null;
   /** Public base URL of the app (links in Telegram, webhook URL). */
   publicUrl: string | null;
+  /**
+   * Run the alert engine (Telegram). On by default only in production, so a dev server running
+   * next to the PM2 one (same Firestore, same bot) doesn't send every alert twice.
+   */
+  alertsEnabled: boolean;
 }
 
 export function loadConfig(): Config {
@@ -36,5 +41,6 @@ export function loadConfig(): Config {
     telegramToken: process.env.TELEGRAM_BOT_TOKEN?.trim().replace(/^["']|["']$/g, '') || null,
     webhookSecret: (process.env.WEBHOOK_SECRET?.trim().length ?? 0) >= 24 ? process.env.WEBHOOK_SECRET!.trim() : null,
     publicUrl: process.env.PUBLIC_URL?.trim() || null,
+    alertsEnabled: process.env.ALERTS_ENABLED ? process.env.ALERTS_ENABLED === 'true' : process.env.NODE_ENV === 'production',
   };
 }
