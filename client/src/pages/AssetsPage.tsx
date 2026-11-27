@@ -63,10 +63,10 @@ function Watchlist({ assets, plans }: { assets: AssetRow[]; plans: Plan[] }) {
             All Forex (FXCM) ·{' '}
             {live ? (
               <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
-                <span className="size-1.5 animate-pulse rounded-full bg-emerald-500" /> מחירים חיים מ-FXCM · גרף ושינוי של השעה האחרונה
+                <span className="size-1.5 animate-pulse rounded-full bg-emerald-500" /> מחירים חיים מ-FXCM, ומ-TradingView לצמדים ש-FXCM לא מעדכן (מסומנים TV) · גרף ושינוי של השעה האחרונה
               </span>
             ) : (
-              'אין מחירים חיים — FXCMgr לא מחובר או כבוי'
+              'אין מחירים חיים — FXCM ו-TradingView לא זמינים'
             )}
           </p>
         </div>
@@ -114,7 +114,7 @@ function Watchlist({ assets, plans }: { assets: AssetRow[]; plans: Plan[] }) {
             </div>
             <div className="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(230px,1fr))]">
               {tiles.map((x) => (
-                <PairTile key={x.t} symbol={x.sym} price={x.price} points={x.h?.points ?? []} activePlans={x.a?.activePlans} ideas={x.a?.ideas} inZone={x.inZone} />
+                <PairTile key={x.t} symbol={x.sym} price={x.price} points={x.h?.points ?? []} source={x.h?.quote?.source} activePlans={x.a?.activePlans} ideas={x.a?.ideas} inZone={x.inZone} />
               ))}
             </div>
           </div>

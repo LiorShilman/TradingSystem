@@ -74,9 +74,11 @@ export interface PairTileProps {
   ideas?: number;
   /** Price is inside the entry zone of an active plan. */
   inZone?: boolean;
+  /** Where the price came from: 'fxcmgr' (the broker) or 'tradingview' (fallback). */
+  source?: string;
 }
 
-export function PairTile({ symbol, price, points, activePlans = 0, ideas = 0, inZone = false }: PairTileProps) {
+export function PairTile({ symbol, price, points, activePlans = 0, ideas = 0, inZone = false, source }: PairTileProps) {
   const t = symbolTicker(symbol);
   const base = t.slice(0, 3);
   const quote = t.slice(3);
@@ -98,6 +100,8 @@ export function PairTile({ symbol, price, points, activePlans = 0, ideas = 0, in
   // Live FX moves within seconds; a price identical for 5+ minutes means the feed is frozen
   // (typically a pair missing from the FXCM subscription list). Never present it as live.
   const stale = minutes >= 5 && new Set(points.map((p) => p[1])).size === 1;
+  // Sampled within the last minute (the server samples every 20s) and actually moving.
+  const fresh = !stale && points.length > 0 && Date.now() - points.at(-1)![0] < 60_000;
   const first = points[0]?.[1];
   const last = price ?? points.at(-1)?.[1];
   const changePct = !stale && first && last && points.length >= 2 ? dec(last).minus(dec(first)).div(dec(first)).times(100) : null;
@@ -123,11 +127,16 @@ export function PairTile({ symbol, price, points, activePlans = 0, ideas = 0, in
           <Badge code={base} />
           <Badge code={quote} />
         </div>
-        <span className="truncate text-[15px] font-semibold tracking-wide">
+        <span className="min-w-0 truncate text-[15px] font-semibold tracking-wide">
           {base}
           <span className="mx-0.5 font-normal text-slate-400">/</span>
           {quote}
         </span>
+        {source === 'tradingview' && (
+          <span className="ms-auto shrink-0 rounded bg-indigo-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-indigo-600 dark:text-indigo-300" title="FXCM לא מעדכן את הצמד הזה — המחיר מ-TradingView">
+            TV
+          </span>
+        )}
       </div>
 
       {/* Row 2: price + change */}
@@ -147,7 +156,7 @@ export function PairTile({ symbol, price, points, activePlans = 0, ideas = 0, in
 
       <div className="relative -mx-1">
         {stale ? (
-          <div className="flex h-10 items-center justify-center rounded-lg bg-amber-500/10 text-[11px] font-medium text-amber-600 dark:text-amber-400" title="המחיר זהה כבר מספר דקות — כנראה הצמד לא נמצא ב-Subscription list של FXCM">
+          <div className="flex h-10 items-center justify-center rounded-lg bg-amber-500/10 text-[11px] font-medium text-amber-600 dark:text-amber-400" title="המחיר זהה כבר מספר דקות — FXCM לא מעדכן את הצמד, ו-TradingView לא זמין כרגע">
             ⚠ המחיר לא מתעדכן
           </div>
         ) : (
@@ -159,7 +168,12 @@ export function PairTile({ symbol, price, points, activePlans = 0, ideas = 0, in
         {inZone && <span className="rounded-full bg-amber-400/20 px-2 py-0.5 font-semibold text-amber-600 dark:text-amber-300">🎯 באזור כניסה</span>}
         {activePlans > 0 && <span className="rounded-full bg-sky-500/15 px-2 py-0.5 text-sky-600 dark:text-sky-300">{activePlans} תוכניות</span>}
         {ideas > 0 && <span className="rounded-full bg-slate-500/15 px-2 py-0.5 text-slate-600 dark:text-slate-300">{ideas} רעיונות</span>}
-        {minutes > 0 && !stale && <span className="ms-auto text-slate-400">{minutes} דק׳</span>}
+        {fresh && (
+          <span className="ms-auto inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400" title={minutes > 0 ? `הגרף והשינוי באחוזים: ${minutes} הדקות האחרונות` : undefined}>
+            <span className="size-1.5 animate-pulse rounded-full bg-emerald-500" />
+            חי
+          </span>
+        )}
       </div>
     </Link>
   );

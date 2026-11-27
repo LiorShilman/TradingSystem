@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { effectiveRates, fxcmgrRates, parseBoiRates, parseFrankfurter, parseFxcmgrQuote, type FxSnapshot } from './fx';
+import { effectiveRates, fxcmgrRates, parseBoiRates, parseFrankfurter, parseFxcmgrQuote, parseTvScan, type FxSnapshot } from './fx';
 
 describe('FXCMgr quotes', () => {
   it('cleans float noise from the bridge', () => {
@@ -76,5 +76,20 @@ describe('effectiveRates', () => {
   });
   it('works with no automatic snapshot yet', () => {
     expect(effectiveRates(null, { USD: '1' }).rates).toEqual({ USD: '1' });
+  });
+});
+
+describe('TradingView scanner quotes', () => {
+  it('rounds to the symbol price scale and keeps only real-time rows', () => {
+    const json = {
+      data: [
+        { s: 'FX:GBPJPY', d: [209.25700000000001, 1000, 'streaming'] },
+        { s: 'FX:AUDNZD', d: [1.2169800000000001, 100000, 'streaming'] },
+        { s: 'NASDAQ:AAPL', d: [355.58, 100, 'delayed_streaming_900'] },
+        { s: 'FX:BAD', d: [null, 100000, 'streaming'] },
+      ],
+    };
+    expect(parseTvScan(json)).toEqual({ 'FX:GBPJPY': '209.257', 'FX:AUDNZD': '1.21698' });
+    expect(parseTvScan({})).toEqual({});
   });
 });

@@ -34,7 +34,7 @@ function AssetView({ symbol }: { symbol: string }) {
         <h1 className="text-xl font-bold" dir="ltr">{symbol}</h1>
         {quote && (
           <span className="text-sm">
-            <span dir="ltr" className="font-semibold tabular-nums">{quote.price}</span> <span className="text-xs text-slate-500">FXCM</span>
+            <span dir="ltr" className="font-semibold tabular-nums">{quote.price}</span> <span className="text-xs text-slate-500">{quote.source === 'tradingview' ? 'TradingView' : 'FXCM'}</span>
           </span>
         )}
         <div className="ms-auto flex gap-2">

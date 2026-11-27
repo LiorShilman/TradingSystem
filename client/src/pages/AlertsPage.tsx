@@ -145,7 +145,7 @@ function AlertSettings() {
         />
       </Field>
       <p className="text-xs text-slate-500">
-        מחירים חיים זמינים כרגע רק לצמדי מט"ח (FXCM). התראה נשלחת רק כשהמחיר באמת זז ב-15 הדקות האחרונות — צמד "קפוא" לא מתריע.
+        מחירים חיים זמינים כרגע לצמדי מט"ח: מ-FXCM, ומ-TradingView לצמדים ש-FXCM לא מעדכן. התראה נשלחת רק כשהמחיר באמת זז ב-15 הדקות האחרונות — צמד "קפוא" לא מתריע.
       </p>
       {msg && <p className="text-sm text-emerald-600 dark:text-emerald-400">{msg}</p>}
     </section>

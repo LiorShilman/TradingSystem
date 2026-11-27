@@ -6,6 +6,7 @@ import type { AlertEngine } from './alerts';
 import { startFxScheduler } from './fx';
 import type { QuoteHub } from './quotes';
 import { Telegram, makeTelegramApi } from './telegram';
+import { defaultTvQuoteClient } from './tradingview';
 import { connectFirestore, createFirestoreStore } from './store/firestore';
 
 const config = loadConfig();
@@ -20,6 +21,8 @@ const app = createApp(store, {
   telegram,
   webhookSecret: config.webhookSecret,
   publicUrl: config.publicUrl,
+  webhookUrl: config.webhookUrl,
+  tvQuoteClient: defaultTvQuoteClient,
 });
 
 app.listen(config.port, '127.0.0.1', () => {

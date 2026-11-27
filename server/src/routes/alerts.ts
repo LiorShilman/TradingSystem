@@ -9,7 +9,7 @@ import type { Store } from '../store/types';
 export const WEBHOOK_PATH = '/webhooks/tradingview';
 
 /** Admin: alert log, settings, webhook setup info. */
-export function alertsRouter(store: Store, engine: AlertEngine, webhook: { secret: string | null; publicUrl: string | null }) {
+export function alertsRouter(store: Store, engine: AlertEngine, webhook: { secret: string | null; publicUrl: string | null; webhookUrl?: string | null }) {
   const r = Router();
 
   r.get('/', async (req, res) => {
@@ -35,7 +35,7 @@ export function alertsRouter(store: Store, engine: AlertEngine, webhook: { secre
     res.json({
       configured: !!webhook.secret,
       path: `/api${WEBHOOK_PATH}`,
-      url: webhook.publicUrl ? `${webhook.publicUrl.replace(/\/$/, '')}/api${WEBHOOK_PATH}` : null,
+      url: webhook.webhookUrl ?? (webhook.publicUrl ? `${webhook.publicUrl.replace(/\/$/, '')}/api${WEBHOOK_PATH}` : null),
       template: webhook.secret ? tvWebhookTemplate(webhook.secret, planId) : null,
     });
   });

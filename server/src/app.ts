@@ -12,6 +12,7 @@ import { exportRouter } from './routes/export';
 import { fxRouter } from './routes/fx';
 import { filesRouter, planningRouter } from './routes/planning';
 import { QuoteHub } from './quotes';
+import type { TvQuoteClient } from './tradingview';
 import { quotesRouter } from './routes/quotes';
 import { settingsRouter } from './routes/settings';
 import { telegramRouter } from './routes/telegram';
@@ -29,6 +30,9 @@ export interface AppOptions {
   telegram?: Telegram;
   webhookSecret?: string | null;
   publicUrl?: string | null;
+  webhookUrl?: string | null;
+  /** TradingView price fallback for pairs FXCM doesn't update. Off unless given (tests stay offline). */
+  tvQuoteClient?: TvQuoteClient | null;
 }
 
 export function createApp(store: Store, opts: AppOptions) {
@@ -38,7 +42,7 @@ export function createApp(store: Store, opts: AppOptions) {
   app.use(express.json({ limit: '1mb' }));
 
   const files = new FileStore(opts.filesDir, opts.adminKey);
-  const quoteHub = new QuoteHub(store, opts.fxcmgrClient);
+  const quoteHub = new QuoteHub(store, { fxcmgr: opts.fxcmgrClient, tv: opts.tvQuoteClient });
   app.locals.quoteHub = quoteHub;
   const telegram = opts.telegram ?? new Telegram(null, store);
   const alertEngine = new AlertEngine(store, telegram, { publicUrl: opts.publicUrl, isLive: (s) => quoteHub.isLive(s) });
@@ -75,7 +79,7 @@ export function createApp(store: Store, opts: AppOptions) {
     next();
   });
   api.use(planningRouter(store, files, opts.binaryFetcher));
-  api.use('/alerts', alertsRouter(store, alertEngine, { secret: opts.webhookSecret ?? null, publicUrl: opts.publicUrl ?? null }));
+  api.use('/alerts', alertsRouter(store, alertEngine, { secret: opts.webhookSecret ?? null, publicUrl: opts.publicUrl ?? null, webhookUrl: opts.webhookUrl ?? null }));
   api.use('/telegram', telegramRouter(store, telegram));
   api.use('/export', exportRouter(store));
   api.use((_req, res) => {

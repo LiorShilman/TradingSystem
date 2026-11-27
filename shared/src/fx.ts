@@ -26,6 +26,24 @@ export function parseFxcmgrQuote(json: unknown): string {
   return decStr(new Decimal(r).toSignificantDigits(8));
 }
 
+/**
+ * TradingView scanner response (columns: close, pricescale, update_mode) → { "FX:GBPJPY": "209.257" }.
+ * Only real-time rows ("streaming"): delayed data (e.g. stocks without a subscription, 15 min) is dropped,
+ * so a delayed price is never shown or alerted on as if it were live. Unknown symbols are simply absent.
+ */
+export function parseTvScan(json: unknown): Record<string, string> {
+  const rows = (json as { data?: Array<{ s?: unknown; d?: unknown[] }> })?.data;
+  const out: Record<string, string> = {};
+  for (const row of Array.isArray(rows) ? rows : []) {
+    const [close, scale, mode] = row.d ?? [];
+    if (typeof row.s !== 'string' || mode !== 'streaming') continue;
+    if (typeof close !== 'number' || !Number.isFinite(close) || close <= 0) continue;
+    const dp = typeof scale === 'number' && scale >= 1 ? Math.min(10, Math.round(Math.log10(scale))) : 8;
+    out[row.s] = decStr(new Decimal(close).toDecimalPlaces(dp));
+  }
+  return out;
+}
+
 /** Combine FXCMgr quotes ({ "USD/ILS": "3.29861", ... }) into units-per-USD rates. */
 export function fxcmgrRates(quotes: Partial<Record<string, string>>): FxSnapshot['rates'] {
   const rates: FxSnapshot['rates'] = {};
